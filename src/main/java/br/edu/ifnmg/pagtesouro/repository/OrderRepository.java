@@ -20,6 +20,13 @@ import java.util.List;
  */
 @Repository
 public interface OrderRepository extends JpaRepository<Order, UUID> {
+    /**
+     * Recupera todos os pedidos cadastrados no banco de dados vinculados a um usuário específico.
+     * Utilizado para alimentar o histórico acadêmico de compras/cobranças do estudante logado.
+     *
+     * @param user A entidade do usuário estudante autenticado requisitante
+     * @return Uma lista de entidades {@link Order} pertencentes a este estudante
+     */
     List<Order> findAllByUser(User user);
 }
 
