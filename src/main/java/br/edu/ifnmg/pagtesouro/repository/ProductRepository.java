@@ -1,19 +1,17 @@
 package br.edu.ifnmg.pagtesouro.repository;
 
 import br.edu.ifnmg.pagtesouro.domain.product.Product;
-import br.edu.ifnmg.pagtesouro.domain.product.dto.ProductResponseDTO;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 /**
  * Interface de repositório JPA responsável pelas operações de persistência da entidade {@link Product}.
  * <p>
  * **Conceito no TCC:**
- * Abstrai a persistência e consulta dos itens cobráveis do IFNMG (tíquetes de RU e multas da biblioteca).
+ * Abstrai a persistência e consulta dos itens cobráveis do IFNMG.
  * </p>
  *
  * @author Caio da Silva Viana
@@ -28,7 +26,7 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
      * @param title O título do produto/serviço.
      * @return Lista contendo os produtos localizados.
      */
-    java.util.List<Product> findByTitle(String title);
+    List<Product> findByTitle(String title);
 
     /**
      * Retorna a lista de todos os produtos que estão com o status ativo no sistema.
@@ -36,6 +34,6 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
      *
      * @return Lista de produtos ativos.
      */
-    java.util.List<Product> findAllByActiveTrue();
+    List<Product> findAllByActiveTrue();
 }
 

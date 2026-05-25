@@ -76,9 +76,10 @@ class PaymentSyncServiceTest {
         when(paymentRepository.findByPagtesouroPaymentId("pt-payment-123")).thenReturn(Optional.of(payment));
         when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
 
-        Mono<Void> result = paymentSyncService.syncPaymentStatus("pt-payment-123");
-        result.block();
+        Mono<Payment> result = paymentSyncService.syncPaymentStatus("pt-payment-123");
+        Payment updatedPayment = result.block();
 
+        assertNotNull(updatedPayment);
         assertEquals(PaymentStatus.COMPLETED, payment.getStatus());
         assertEquals(PaymentMethod.PIX, payment.getPaymentMethod());
         assertEquals("Simulador PSP", payment.getPspName());

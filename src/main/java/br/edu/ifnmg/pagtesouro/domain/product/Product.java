@@ -17,9 +17,9 @@ import java.util.UUID;
  * Entidade JPA que representa um item cobrável (Produto ou Serviço) comercializado no sistema.
  * <p>
  * **Conceito no TCC:**
- * Para manter a flexibilidade exigida pela banca e suportar futuras expansões, os tradicionais
- * 'Tíquetes Físicos' do restaurante estudantil (Almoço, Janta, Lanche) e outras cobranças governamentais
- * (como as taxas de multas de livros em atraso da Biblioteca) são modelados genericamente sob a classe
+ * Para manter a flexibilidade e suportar qualquer tipo de arrecadação do IFNMG,
+ * taxas de inscrição em processos seletivos, cobranças de vestibular, tíquetes de alimentação,
+ * taxas de emissão de documentos e demais receitas da instituição são modeladas genericamente sob a classe
  * {@code Product}.
  * </p>
  * <p>

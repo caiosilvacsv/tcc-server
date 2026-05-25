@@ -3,6 +3,7 @@ package br.edu.ifnmg.pagtesouro.infra.pagtesouro;
 import br.edu.ifnmg.pagtesouro.infra.pagtesouro.dto.PagTesouroRequestDTO;
 import br.edu.ifnmg.pagtesouro.infra.pagtesouro.dto.PagTesouroResponseDTO;
 import br.edu.ifnmg.pagtesouro.infra.pagtesouro.dto.PagTesouroQueryResponseDTO;
+import lombok.Getter;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -16,6 +17,11 @@ import reactor.core.publisher.Mono;
 @Component
 public class PagTesouroClient {
 
+  /**
+   * -- GETTER --
+   *  Retorna as propriedades de configuração do PagTesouro.
+   */
+  @Getter
   private final PagTesouroProperties properties;
   private final WebClient webClient;
 
@@ -26,7 +32,7 @@ public class PagTesouroClient {
   public PagTesouroClient(PagTesouroProperties properties, WebClient.Builder webClientBuilder) {
     this.properties = properties;
     this.webClient = webClientBuilder
-        .baseUrl(this.properties.base_url())
+        .baseUrl(this.properties.base_url()+"/api/gru/")
         .build();
   }
 
@@ -39,7 +45,7 @@ public class PagTesouroClient {
   public Mono<PagTesouroResponseDTO> createPayment(PagTesouroRequestDTO request) {
     return webClient
         .post()
-        .uri("/api/gru/solicitacao-pagamento") // Correção preventiva: adicionada barra inicial
+        .uri("solicitacao-pagamento")
         .headers(headers -> headers.setBearerAuth(properties.token_salinas()))
         .bodyValue(request)
         .retrieve()
@@ -56,7 +62,7 @@ public class PagTesouroClient {
   public Mono<PagTesouroQueryResponseDTO> getPaymentStatus(String idPayment) {
     return webClient
         .get()
-        .uri("/api/gru/pagamentos/{id}", idPayment)
+        .uri("pagamentos/{id}", idPayment)
         .headers(headers -> headers.setBearerAuth(properties.token_salinas()))
         .retrieve()
         .bodyToMono(PagTesouroQueryResponseDTO.class);

@@ -11,6 +11,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "api.pagtesouro")
 public record PagTesouroProperties(
     String base_url,
-    String token_salinas
+    String token_salinas,
+    String url_notificacao
 ) {
 }

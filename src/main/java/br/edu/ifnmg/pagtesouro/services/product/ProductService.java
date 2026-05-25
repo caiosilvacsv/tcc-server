@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
  * Serviço responsável por gerenciar a lógica de negócios e transações relacionadas à entidade {@link Product}.
  * <p>
  * **Conceito no TCC:**
- * Modela os tíquetes do RU e multas da biblioteca como itens cobráveis e gerencia seu ciclo de vida.
+ * Modela os produtos, taxas acadêmicas e receitas públicas institucionais como itens cobráveis de catálogo e gerencia seu ciclo de vida.
  * </p>
  *
  * @author Caio da Silva Viana

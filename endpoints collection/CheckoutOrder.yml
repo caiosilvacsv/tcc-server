@@ -1,0 +1,22 @@
+info:
+  name: Checkout de Pedido Existente
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{localhost}}api/payments/checkout/insira-id-do-pedido-aqui"
+  body:
+    type: json
+    data: |-
+      {
+        "contributorCpfCnpj": "12345678909",
+        "contributorName": "Nome do Pagador da Guia"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -42,6 +42,13 @@ public class Payment {
     private UUID id;
 
     /**
+     * Número de referência sequencial e estritamente numérico gerado pelo PostgreSQL
+     * enviado como o parâmetro 'referencia' exigido pela API do PagTesouro.
+     */
+    @Column(name = "reference_number", unique = true, insertable = false, updatable = false)
+    private Long referenceNumber;
+
+    /**
      * ID de identificação retornado na resposta da API da STN (identificacaoSolicitacao).
      * Permite NULL inicial até que o POST no PagTesouro retorne com sucesso.
      */
@@ -80,6 +87,12 @@ public class Payment {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private PaymentStatus status;
+
+    /**
+     * Define se a transação está ativa no histórico (controle de exclusão lógica).
+     */
+    @Column(nullable = false)
+    private Boolean active = true;
 
     /**
      * Método de pagamento escolhido pelo contribuinte (Pix, Cartão de Crédito, Boleto).

@@ -20,7 +20,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Serviço responsável por gerenciar o ciclo de vida e regras de negócio da entidade {@link Order}.
+ * Serviço responsável por gerenciar as regras de negócio e o ciclo de vida da entidade {@link Order}.
  *
  * @author Caio da Silva Viana
  */
@@ -36,11 +36,11 @@ public class OrderService {
     }
 
     /**
-     * Cria um novo pedido (carrinho de compras) para o usuário autenticado.
+     * Cria um novo pedido (carrinho de compras) associado de forma segura ao estudante logado.
      *
-     * @param dto Os itens e quantidades solicitados.
-     * @param user O usuário/estudante autenticado que realiza a solicitação.
-     * @return O DTO do pedido salvo e populado.
+     * @param dto Os itens e quantidades de produtos que o usuário selecionou.
+     * @param user O usuário autenticado solicitante.
+     * @return O DTO do pedido salvo e consolidado com cálculos seguros do banco.
      */
     @Transactional
     public OrderResponseDTO createOrder(OrderRequestDTO dto, User user) {
@@ -49,20 +49,22 @@ public class OrderService {
         order.setOrderItems(new ArrayList<>());
 
         BigDecimal totalOrderAmount = BigDecimal.ZERO;
-        
-        for (OrderRequestDTO.ItemRequestDTO itemDto : dto.items()) {
+
+        // Varre a lista de itens recebidos no DTO
+        for (OrderRequestDTO.items itemDto : dto.itemsList()) {
             Product product = productRepository.findById(itemDto.productId())
                 .orElseThrow(() -> new FindException("Produto com ID " + itemDto.productId() + " não localizado."));
-            
+
             OrderItem item = new OrderItem();
             item.setOrder(order);
             item.setProduct(product);
             item.setQuantity(itemDto.quantity());
-            
+
+            // Calcula o valor total do item de forma segura (preço real * quantidade)
             BigDecimal itemTotal = product.getPrice().multiply(BigDecimal.valueOf(itemDto.quantity()));
             item.setTotalAmount(itemTotal);
-            item.setStatus(OrderItemStatus.PENDING);
-            
+            item.setStatus(OrderItemStatus.PENDING); // Nasce pendente de pagamento
+
             order.getOrderItems().add(item);
             totalOrderAmount = totalOrderAmount.add(itemTotal);
         }
@@ -73,7 +75,7 @@ public class OrderService {
     }
 
     /**
-     * Retorna o histórico de pedidos efetuados pelo usuário autenticado.
+     * Retorna o histórico de pedidos completo efetuados pelo estudante logado.
      *
      * @param user O usuário autenticado.
      * @return Lista contendo os DTOs dos pedidos correspondentes.
@@ -86,10 +88,10 @@ public class OrderService {
     }
 
     /**
-     * Localiza um pedido específico pelo seu ID único.
-     * Realiza proteção de leitura para garantir que apenas o proprietário ou administradores acessem.
+     * Busca um pedido específico pelo seu ID único.
+     * Realiza a validação de segurança para garantir que apenas o proprietário do pedido ou administradores acessem.
      *
-     * @param orderId O ID do pedido buscado.
+     * @param orderId O ID único do pedido buscado.
      * @param user O usuário solicitante (para validação de segurança).
      * @return O DTO do pedido localizado.
      * @throws SecurityException se o usuário não for o dono do pedido ou ADMIN.
@@ -98,12 +100,12 @@ public class OrderService {
     public OrderResponseDTO getOrderById(UUID orderId, User user) {
         Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new FindException("Pedido não encontrado!"));
-        
-        // Proteção: apenas o próprio estudante ou um ADMIN pode ler o pedido
+
+        // Proteção de segurança do IFNMG: apenas o dono ou um ADMIN podem ler
         if (!order.getUser().getId().equals(user.getId()) && !user.getRole().name().equals("ADMIN")) {
-            throw new SecurityException("Acesso negado ao pedido.");
+            throw new SecurityException("Acesso negado a este pedido.");
         }
-        
+
         return new OrderResponseDTO(order);
     }
 }

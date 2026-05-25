@@ -48,6 +48,7 @@ public class SecurityConfiguration {
             .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
             .requestMatchers(HttpMethod.POST, "/auth/register").permitAll()
             .requestMatchers(HttpMethod.POST, "/payment/webhook").permitAll()
+            .requestMatchers(HttpMethod.POST, "/api/payments/anonymous").permitAll() // Rota pública de checkout anônimo
             .requestMatchers(HttpMethod.POST, "/product").hasRole("ADMIN")
             .requestMatchers(HttpMethod.PUT, "/product/**").hasRole("ADMIN")
             .requestMatchers(HttpMethod.DELETE, "/product/**").hasRole("ADMIN")

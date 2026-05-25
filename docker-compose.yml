@@ -1,0 +1,72 @@
+version: '3.8'
+
+# ==============================================================================
+# Docker Compose para Implantação e Execução Local do Ecossistema TCC
+# ==============================================================================
+# Sobe de forma orquestrada o banco de dados PostgreSQL e o backend tcc-server
+# garantindo a consistência eventual e integridade de todas as variáveis de ambiente.
+# ==============================================================================
+
+services:
+
+  # 🐘 Banco de Dados PostgreSQL (Persistente)
+  db:
+    image: postgres:16-alpine
+    container_name: tcc-postgres-db
+    environment:
+      POSTGRES_DB: tcc_db
+      POSTGRES_USER: tcc_user
+      POSTGRES_PASSWORD: tcc_pass
+    ports:
+      - "5432:5432" # Expõe a porta para auditoria via DBeaver/pgAdmin
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tcc_user -d tcc_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tcc-network
+
+  # ☕ Backend Spring Boot (tcc-server)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tcc-backend-app
+    ports:
+      - "8080:8080" # Expõe as rotas REST para o frontend
+    environment:
+      # Configurações do Banco de Dados
+      POSTGRESSQL_URL: jdbc:postgresql://db:5432/tcc_db
+      POSTGRESSQL_USER: tcc_user
+      POSTGRESSQL_PASSWORD: tcc_pass
+      ACTIVE_PROFILE: dev
+
+      # Configurações de Segurança e JWT
+      JWT_SECRET: ${JWT_SECRET:-my-secret-key-tcc-server-123456789-secret-token}
+      JWT_ISSUER: pagtesouro-api
+      JWT_AUDIENCE: api
+      JWT_EXPIRATION_HOURS: 2
+
+      # Integração com a API do PagTesouro da STN
+      PAGTESOURO_BASE_URL: "https://valpagtesouro.tesouro.gov.br"
+      PAGTESOURO_TOKEN_SALINAS: ${PAGTESOURO_TOKEN_SALINAS:-insira_seu_token_aqui}
+      PAGTESOURO_URL_NOTIFICACAO: ${PAGTESOURO_URL_NOTIFICACAO:-http://localhost:8080/payment/webhook}
+
+      # Daemon Failsafe de Conciliação Automática (Padrão: A cada 1 hora)
+      PAGTESOURO_DAEMON_CRON: ${PAGTESOURO_DAEMON_CRON:-0 0 * * * *}
+    depends_on:
+      db:
+        condition: service_healthy # Aguarda o banco estar 100% pronto antes de subir o backend
+    networks:
+      - tcc-network
+
+networks:
+  tcc-network:
+    driver: bridge
+
+volumes:
+  pgdata:
+    driver: local

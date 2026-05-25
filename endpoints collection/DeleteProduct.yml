@@ -1,0 +1,17 @@
+info:
+  name: Desativar Produto (ADMIN)
+  type: http
+  seq: 11
+
+http:
+  method: DELETE
+  url: "{{localhost}}product/insira-id-do-produto-aqui"
+  body:
+    type: none
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

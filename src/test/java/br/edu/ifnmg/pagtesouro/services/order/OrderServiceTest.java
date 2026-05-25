@@ -1,7 +1,6 @@
 package br.edu.ifnmg.pagtesouro.services.order;
 
 import br.edu.ifnmg.pagtesouro.domain.order.Order;
-import br.edu.ifnmg.pagtesouro.domain.order.OrderStatus;
 import br.edu.ifnmg.pagtesouro.domain.order.dto.OrderRequestDTO;
 import br.edu.ifnmg.pagtesouro.domain.order.dto.OrderResponseDTO;
 import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItem;
@@ -51,8 +50,6 @@ class OrderServiceTest {
     @BeforeEach
     void setUp() {
         user = new User("caio@ifnmg.edu.br", "hashed_password", "Caio", "12345678901");
-        // Reflectively or using direct fields if public
-        // For testing we mock or instantiate directly
         
         product = new Product();
         product.setId(UUID.randomUUID());
@@ -62,7 +59,7 @@ class OrderServiceTest {
         product.setCategory(ProductCategory.TICKET);
 
         orderRequestDTO = new OrderRequestDTO(
-            List.of(new OrderRequestDTO.ItemRequestDTO(product.getId(), 5))
+            List.of(new OrderRequestDTO.items(product.getId(), 5))
         );
 
         order = new Order();

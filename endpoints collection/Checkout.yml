@@ -1,18 +1,21 @@
 info:
-  name: Checkout
+  name: Checkout Simplificado (Anônimo)
   type: http
   seq: 4
 
 http:
   method: POST
-  url: "{{localhost}}payment/checkout"
+  url: "{{localhost}}api/payments/anonymous"
   body:
     type: json
     data: |-
       {
-        "orderId": "insira-id-do-pedido-aqui"
+        "productID": "coloque-o-uuid-do-produto-aqui",
+        "quantity": 2,
+        "contributorCpfCnpj": "12345678909",
+        "contributorName": "Nome do Contribuinte Anônimo"
       }
-  auth: inherit
+  auth: none
 
 settings:
   encodeUrl: true

@@ -5,12 +5,12 @@ info:
 
 http:
   method: POST
-  url: "{{localhost}}order"
+  url: "{{localhost}}api/orders"
   body:
     type: json
     data: |-
       {
-        "items": [
+        "itemsList": [
           {
             "productId": "insira-id-do-produto-aqui",
             "quantity": 3
