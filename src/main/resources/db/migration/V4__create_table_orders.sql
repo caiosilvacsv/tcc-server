@@ -1,0 +1,10 @@
+CREATE TABLE orders(
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL,
+    total_amount INTEGER NOT NULL,
+    create_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    update_at TIMESTAMP WITH TIME ZONE,
+    cancelled_at TIMESTAMP WITH TIME ZONE,
+
+    CONSTRAINT fk_pivot_users FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);

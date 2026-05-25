@@ -1,0 +1,26 @@
+info:
+  name: CreateOrder
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{localhost}}order"
+  body:
+    type: json
+    data: |-
+      {
+        "items": [
+          {
+            "productId": "insira-id-do-produto-aqui",
+            "quantity": 3
+          }
+        ]
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

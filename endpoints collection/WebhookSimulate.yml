@@ -1,0 +1,24 @@
+info:
+  name: WebhookSimulate
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{localhost}}payment/webhook"
+  body:
+    type: json
+    data: |-
+      {
+        "idPagamento": "insira-id-pagamento-pagtesouro-aqui",
+        "dataHora": "2026-05-25T16:03:20Z"
+      }
+  headers:
+    Authorization: Bearer tokenqualquerparateste
+  auth: none
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

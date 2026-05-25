@@ -8,8 +8,7 @@ import com.auth0.jwt.exceptions.JWTVerificationException;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 
 @Service
 public class TokenService {
@@ -24,7 +23,7 @@ public class TokenService {
       Algorithm algorithm = Algorithm.HMAC256(jwtProperties.secret());
       return JWT.create()
           .withIssuer(jwtProperties.issuer())
-          .withSubject(user.getLogin())
+          .withSubject(user.getEmail())
           .withExpiresAt(genExpirationDate())
           .withAudience(jwtProperties.audience())
           .sign(algorithm);
@@ -47,9 +46,8 @@ public class TokenService {
   }
 
   private Instant genExpirationDate(){
-    return LocalDateTime
+    return Instant
         .now()
-        .plusMinutes(jwtProperties.expirationTimeInMinutes())
-        .toInstant(ZoneOffset.of("-03:00"));
+        .plus(jwtProperties.expirationTimeInMinutes(), ChronoUnit.MINUTES);
   }
 }
