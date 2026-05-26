@@ -63,7 +63,8 @@ public class Payment {
     /**
      * Mês e ano de competência da cobrança (formato MMYYYY).
      */
-    private Integer competence;
+    @Column(name = "competence", length = 6, updatable = false)
+    private String competence;
 
     /**
      * Data limite de vencimento da cobrança (GRU).
@@ -75,7 +76,7 @@ public class Payment {
      * Valor total consolidado da cobrança (incluindo principal, multa e juros) em centavos.
      */
     @Convert(converter = MoneyToCentsConverter.class)
-    @Column(nullable = false)
+    @Column(nullable = false, updatable = false)
     private BigDecimal amount;
 
     /**
@@ -161,13 +162,13 @@ public class Payment {
     /**
      * CPF ou CNPJ de quem de fato realizou o pagamento (pode diferir do aluno).
      */
-    @Column(name = "contributor_cpf_cnpj", length = 14)
+    @Column(name = "contributor_cpf_cnpj", length = 14 , updatable = false)
     private String contributorCpfCnpj;
 
     /**
      * Nome de quem de fato realizou o pagamento físico (Nome na GRU).
      */
-    @Column(name = "contributor_name", length = 45)
+    @Column(name = "contributor_name", length = 45,  updatable = false)
     private String contributorName;
 
     /**

@@ -15,9 +15,12 @@ import br.edu.ifnmg.pagtesouro.infra.pagtesouro.dto.PagTesouroRequestDTO;
 import br.edu.ifnmg.pagtesouro.repository.OrderRepository;
 import br.edu.ifnmg.pagtesouro.repository.PaymentRepository;
 import br.edu.ifnmg.pagtesouro.repository.ProductRepository;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -94,18 +97,19 @@ public class PaymentService {
 
     // Efetua a chamada HTTP reativa ao PagTesouro e atualiza o registro local com a resposta
     return pagTesouroClient.createPayment(ptRequest)
-        .map(ptResponse -> {
+        .publishOn(Schedulers.boundedElastic())
+          .flatMap( ptResponse -> {
           payment.setPagtesouroPaymentId(ptResponse.idPayment());
           payment.setNextUrl(ptResponse.nextUrl());
-          paymentRepository.save(payment); // Atualiza os dados de redirecionamento e ID de Salinas no Postgres
 
-          return new CheckoutResponseDTO(
-              payment.getId(),
-              payment.getPagtesouroPaymentId(),
-              payment.getAmount(),
-              payment.getStatus().name(),
-              payment.getNextUrl()
-          );
+          return Mono.fromCallable(() -> paymentRepository.save(payment))
+            .map(saved -> new CheckoutResponseDTO(
+                saved.getId(),
+                saved.getPagtesouroPaymentId(),
+                saved.getAmount(),
+                saved.getStatus().name(),
+                saved.getNextUrl()
+          ));
         });
   }
 
@@ -147,7 +151,7 @@ public class PaymentService {
     payment.setAmount(amountTotal);
     payment.setPrincipalAmount(amountTotal);
     payment.setStatus(PaymentStatus.CREATED);
-    payment.setCompetence(Integer.parseInt(LocalDate.now().format(DateTimeFormatter.ofPattern("MMyyyy"))));
+    payment.setCompetence(LocalDate.now().format(DateTimeFormatter.ofPattern("MMyyyy")));
     payment.setExpiredAt(LocalDate.now().plusDays(2));
     payment.setContributorName(request.contributorName());
     payment.setContributorCpfCnpj(request.contributorCpfCnpj());
@@ -172,24 +176,25 @@ public class PaymentService {
         BigDecimal.ZERO,
         BigDecimal.ZERO,
         BigDecimal.ZERO,
-        2, // Modo navegação: nova aba
+        request.isMobile()? 1:2,
         pagTesouroClient.getProperties().url_notificacao()
     );
 
     // 8. Efetua a requisição reativa não-bloqueante
     return pagTesouroClient.createPayment(ptRequest)
-        .map(ptResponse -> {
+        .publishOn(Schedulers.boundedElastic())
+        .flatMap(ptResponse -> {
           savedPayment.setPagtesouroPaymentId(ptResponse.idPayment());
           savedPayment.setNextUrl(ptResponse.nextUrl());
-          paymentRepository.save(savedPayment); // Consolida dados de redirecionamento no banco de dados
 
-          return new CheckoutResponseDTO(
-              savedPayment.getId(),
-              savedPayment.getPagtesouroPaymentId(),
-              savedPayment.getAmount(),
-              savedPayment.getStatus().name(),
-              savedPayment.getNextUrl()
-          );
+          return Mono.fromCallable(() -> paymentRepository.save(savedPayment))
+          .map(saved -> new CheckoutResponseDTO(
+              saved.getId(),
+              saved.getPagtesouroPaymentId(),
+              saved.getAmount(),
+              saved.getStatus().name(),
+              saved.getNextUrl()
+          ));
         });
   }
 
@@ -203,7 +208,7 @@ public class PaymentService {
     payment.setStatus(PaymentStatus.CREATED);
 
     // Mês e Ano de competência atual (MMyyyy)
-    payment.setCompetence(Integer.parseInt(LocalDate.now().format(DateTimeFormatter.ofPattern("MMyyyy"))));
+    payment.setCompetence(LocalDate.now().format(DateTimeFormatter.ofPattern("MMyyyy")));
 
     // Expiração em 2 dias
     payment.setExpiredAt(LocalDate.now().plusDays(2));

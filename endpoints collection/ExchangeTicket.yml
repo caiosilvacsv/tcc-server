@@ -1,0 +1,17 @@
+info:
+  name: Efetuar Baixa/Troca Física de Tíquete (Restrito ADMIN)
+  type: http
+  seq: 14
+
+http:
+  method: PUT
+  url: "{{localhost}}api/orders/items/insira-id-do-item-aqui/exchange"
+  body:
+    type: none
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

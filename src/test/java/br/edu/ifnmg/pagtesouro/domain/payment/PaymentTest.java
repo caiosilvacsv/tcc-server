@@ -38,7 +38,7 @@ class PaymentTest {
         payment.setId(id);
         payment.setPagtesouroPaymentId("solic_12345");
         payment.setReference("REF99");
-        payment.setCompetence(202605);
+        payment.setCompetence("202605");
         payment.setExpiredAt(LocalDate.of(2026, 5, 23));
         payment.setAmount(new BigDecimal("15.50"));
         payment.setStatus(PaymentStatus.CREATED);
@@ -62,7 +62,7 @@ class PaymentTest {
         assertEquals(id, payment.getId());
         assertEquals("solic_12345", payment.getPagtesouroPaymentId());
         assertEquals("REF99", payment.getReference());
-        assertEquals(202605, payment.getCompetence());
+        assertEquals("202605", payment.getCompetence());
         assertEquals(LocalDate.of(2026, 5, 23), payment.getExpiredAt());
         assertEquals(new BigDecimal("15.50"), payment.getAmount());
         assertEquals(PaymentStatus.CREATED, payment.getStatus());

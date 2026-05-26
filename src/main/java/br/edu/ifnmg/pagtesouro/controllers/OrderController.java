@@ -69,4 +69,25 @@ public class OrderController {
         OrderResponseDTO order = orderService.getOrderById(id, user);
         return ResponseEntity.ok(order);
     }
+
+    /**
+     * Rota de baixa e troca física de um item de pedido (tíquete ou taxa de biblioteca) restrita a administradores.
+     *
+     * @param itemId O ID do item a ser trocado.
+     * @param user O usuário logado (deve possuir privilégio de ADMIN).
+     * @return O DTO do item atualizado com o status de trocado com status 200 OK.
+     */
+    @PutMapping("/items/{itemId}/exchange")
+    public ResponseEntity<OrderResponseDTO.OrderItemResponseDTO> exchangeItem(
+            @PathVariable UUID itemId,
+            @AuthenticationPrincipal User user) {
+        
+        // Proteção de segurança: Apenas administradores podem fazer a baixa física
+        if (!user.getRole().name().equals("ADMIN")) {
+            throw new SecurityException("Acesso negado: Apenas administradores podem efetuar a baixa de itens.");
+        }
+
+        OrderResponseDTO.OrderItemResponseDTO response = orderService.exchangeItem(itemId, user);
+        return ResponseEntity.ok(response);
+    }
 }

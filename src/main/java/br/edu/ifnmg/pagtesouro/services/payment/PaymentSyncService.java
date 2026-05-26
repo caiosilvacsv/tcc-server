@@ -9,6 +9,7 @@ import br.edu.ifnmg.pagtesouro.repository.PaymentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Serviço responsável por realizar a sincronização e conciliação ativa do status dos pagamentos
@@ -37,6 +38,7 @@ public class PaymentSyncService {
   @Transactional
   public Mono<Payment> syncPaymentStatus(String pagtesouroPaymentId) {
     return pagTesouroClient.getPaymentStatus(pagtesouroPaymentId)
+        .publishOn(Schedulers.boundedElastic()) // Aloca as chamadas bloqueantes abaixo para a thread pool correta
         .flatMap(ptResponse -> {
           // Localiza o pagamento correspondente na nossa base pelo ID externo do PagTesouro
           Payment payment = paymentRepository.findByPagtesouroPaymentId(pagtesouroPaymentId)
@@ -60,7 +62,7 @@ public class PaymentSyncService {
           }
 
           // Persiste as informações de liquidação no Postgres
-          return Mono.just(paymentRepository.save(payment));
+        return Mono.fromCallable(() -> paymentRepository.save(payment));
         });
   }
 }

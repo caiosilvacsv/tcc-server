@@ -8,12 +8,14 @@ import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItemStatus;
 import br.edu.ifnmg.pagtesouro.domain.product.Product;
 import br.edu.ifnmg.pagtesouro.domain.user.User;
 import br.edu.ifnmg.pagtesouro.exceptions.FindException;
+import br.edu.ifnmg.pagtesouro.repository.OrderItemRepository;
 import br.edu.ifnmg.pagtesouro.repository.OrderRepository;
 import br.edu.ifnmg.pagtesouro.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -29,10 +31,16 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
+    private final OrderItemRepository orderItemRepository;
 
-    public OrderService(OrderRepository orderRepository, ProductRepository productRepository) {
+    public OrderService(
+        OrderRepository orderRepository,
+        ProductRepository productRepository,
+        OrderItemRepository orderItemRepository
+    ) {
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
+        this.orderItemRepository = orderItemRepository;
     }
 
     /**
@@ -107,5 +115,35 @@ public class OrderService {
         }
 
         return new OrderResponseDTO(order);
+    }
+
+    /**
+     * Efetua a baixa e troca física de um item de pedido (tíquete ou serviço) que já foi pago.
+     * Restrito para validações de negócios governamentais e controle contra duplo consumo.
+     *
+     * @param itemId O identificador único global (UUID) do item de pedido a ser trocado.
+     * @param admin O usuário administrador que está realizando o atendimento e efetuando a baixa.
+     * @return O DTO representativo do item de pedido atualizado com o status de trocado.
+     * @throws FindException se o item de pedido não for localizado no banco de dados.
+     * @throws IllegalStateException se o item não estiver no status PAID (não pago ou já trocado).
+     */
+    @Transactional
+    public OrderResponseDTO.OrderItemResponseDTO exchangeItem(UUID itemId, User admin) {
+        OrderItem item = orderItemRepository.findById(itemId)
+            .orElseThrow(() -> new FindException("Item de pedido com ID " + itemId + " não localizado."));
+
+        if (item.getStatus() != OrderItemStatus.PAID) {
+            if (item.getStatus() == OrderItemStatus.EXCHANGED) {
+                throw new IllegalStateException("Falha na baixa física: Este tíquete/serviço já foi trocado anteriormente.");
+            }
+            throw new IllegalStateException("Falha na baixa física: O item do pedido não está em estado PAGO (Status atual: " + item.getStatus() + ").");
+        }
+
+        item.setStatus(OrderItemStatus.EXCHANGED);
+        item.setExchangedAt(Instant.now());
+        item.setExchangedBy(admin.getId());
+
+        OrderItem savedItem = orderItemRepository.save(item);
+        return new OrderResponseDTO.OrderItemResponseDTO(savedItem);
     }
 }

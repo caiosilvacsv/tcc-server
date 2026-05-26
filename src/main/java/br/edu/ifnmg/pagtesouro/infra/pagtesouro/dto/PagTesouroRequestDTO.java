@@ -17,7 +17,7 @@ public record PagTesouroRequestDTO(
     String reference,
 
     @JsonProperty("competencia")
-    Integer competence,
+    String competence,
 
     @JsonProperty("vencimento")
     String expireAt, // String no formato DDMMAAAA exigido pela STN

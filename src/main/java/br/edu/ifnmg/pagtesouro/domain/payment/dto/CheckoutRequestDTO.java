@@ -11,7 +11,7 @@ import java.util.UUID;
  * @author Caio da Silva Viana
  */
 public record CheckoutRequestDTO(
-    
+
     /**
      * ID opcional do pedido para o checkout integrado (carrinho).
      */
@@ -38,6 +38,8 @@ public record CheckoutRequestDTO(
      * Nome do contribuinte pagador (obrigatório para emissão da GRU no PagTesouro).
      */
     @NotBlank(message = "O nome do pagador é obrigatório!")
-    String contributorName
+    String contributorName,
+
+    boolean isMobile
 
 ) {}

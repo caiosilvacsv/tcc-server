@@ -5,6 +5,7 @@ import br.edu.ifnmg.pagtesouro.domain.payment.PaymentStatus;
 import br.edu.ifnmg.pagtesouro.repository.PaymentRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -69,17 +70,22 @@ public class PaymentDaemonService {
       return;
     }
 
-    System.out.printf("[DAEMON] Localizados %d pagamentos pendentes elegíveis. Iniciando sincronização ativa...%n", pagamentosPendentes.size());
+    System.out.printf("[DAEMON] Localizados %d pagamentos pendentes elegíveis. Iniciando sincronização ativa...%n",
+        pagamentosPendentes.size());
 
-    // Dispara reativamente a sincronização de cada pagamento pendente localizado
-    for (Payment payment : pagamentosPendentes) {
-      paymentSyncService.syncPaymentStatus(payment.getPagtesouroPaymentId())
-          .subscribe(
-              success -> System.out.printf("[DAEMON] Pagamento %s sincronizado com sucesso. Novo Status: %s%n",
-                  payment.getPagtesouroPaymentId(), success.getStatus()),
-              error -> System.err.printf("[DAEMON] Erro ao sincronizar pagamento %s: %s%n",
-                  payment.getPagtesouroPaymentId(), error.getMessage())
-          );
-    }
+    //Executa no máximo duas buscas simultâneas por vez no PagTesouro, evitando sobrecarga.
+    Flux.fromIterable(pagamentosPendentes)
+        .flatMap(payment -> paymentSyncService
+            .syncPaymentStatus(
+                payment.getPagtesouroPaymentId()
+            )
+            .doOnSuccess(success ->
+                System.out.printf("[DAEMON] Sincronizado: %s. Novo Status: %s%n",
+                    payment.getPagtesouroPaymentId(), success.getStatus()))
+                .doOnError(error ->
+                    System.err.printf("[DAEMON] Erro ao sincronizar %s: %s%n",
+                        payment.getPagtesouroPaymentId(), error.getMessage())),
+        2)
+        .subscribe();
   }
 }

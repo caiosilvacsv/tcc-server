@@ -106,7 +106,7 @@ class PaymentServiceTest {
         payment.setContributorCpfCnpj("12345678901");
         payment.setOrderItems(order.getOrderItems());
         payment.setExpiredAt(LocalDate.now().plusDays(2));
-        payment.setCompetence(202605);
+        payment.setCompetence("202605");
         payment.setReferenceNumber(100200L);
 
         properties = new PagTesouroProperties(
@@ -131,7 +131,8 @@ class PaymentServiceTest {
             product.getId(),
             1,
             "12345678901",
-            "Caio Viana"
+            "Caio Viana",
+            false
         );
 
         when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
@@ -160,7 +161,8 @@ class PaymentServiceTest {
             null,
             null,
             "12345678901",
-            "Caio Viana"
+            "Caio Viana",
+            false
         );
 
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));

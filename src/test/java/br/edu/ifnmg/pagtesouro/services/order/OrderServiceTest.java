@@ -4,10 +4,12 @@ import br.edu.ifnmg.pagtesouro.domain.order.Order;
 import br.edu.ifnmg.pagtesouro.domain.order.dto.OrderRequestDTO;
 import br.edu.ifnmg.pagtesouro.domain.order.dto.OrderResponseDTO;
 import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItem;
+import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItemStatus;
 import br.edu.ifnmg.pagtesouro.domain.product.Product;
 import br.edu.ifnmg.pagtesouro.domain.product.ProductCategory;
 import br.edu.ifnmg.pagtesouro.domain.user.User;
 import br.edu.ifnmg.pagtesouro.exceptions.FindException;
+import br.edu.ifnmg.pagtesouro.repository.OrderItemRepository;
 import br.edu.ifnmg.pagtesouro.repository.OrderRepository;
 import br.edu.ifnmg.pagtesouro.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +40,9 @@ class OrderServiceTest {
 
     @Mock
     private ProductRepository productRepository;
+
+    @Mock
+    private OrderItemRepository orderItemRepository;
 
     @InjectMocks
     private OrderService orderService;
@@ -115,5 +120,64 @@ class OrderServiceTest {
         assertEquals(1, response.size());
         assertEquals(order.getId(), response.get(0).id());
         verify(orderRepository, times(1)).findAllByUser(user);
+    }
+
+    @Test
+    @DisplayName("Deve efetuar a baixa/troca física de um item pago com sucesso")
+    void exchangeItemSuccess() {
+        OrderItem item = order.getOrderItems().get(0);
+        item.setStatus(OrderItemStatus.PAID);
+        item.setPaidAt(Instant.now());
+
+        User admin = new User("admin@ifnmg.edu.br", "hashed_pwd", "Admin", "98765432100");
+
+        when(orderItemRepository.findById(item.getId())).thenReturn(Optional.of(item));
+        when(orderItemRepository.save(any(OrderItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderResponseDTO.OrderItemResponseDTO response = orderService.exchangeItem(item.getId(), admin);
+
+        assertNotNull(response);
+        assertEquals("EXCHANGED", response.status());
+        assertEquals(5, response.quantity());
+        verify(orderItemRepository, times(1)).findById(item.getId());
+        verify(orderItemRepository, times(1)).save(any(OrderItem.class));
+    }
+
+    @Test
+    @DisplayName("Deve falhar ao tentar trocar um item que não foi pago")
+    void exchangeItemNotPaid() {
+        OrderItem item = order.getOrderItems().get(0);
+        item.setStatus(OrderItemStatus.PENDING); // Ainda não foi pago
+
+        User admin = new User("admin@ifnmg.edu.br", "hashed_pwd", "Admin", "98765432100");
+
+        when(orderItemRepository.findById(item.getId())).thenReturn(Optional.of(item));
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> 
+            orderService.exchangeItem(item.getId(), admin)
+        );
+
+        assertTrue(exception.getMessage().contains("não está em estado PAGO"));
+        verify(orderItemRepository, times(1)).findById(item.getId());
+        verify(orderItemRepository, never()).save(any(OrderItem.class));
+    }
+
+    @Test
+    @DisplayName("Deve falhar ao tentar trocar um item que já foi trocado anteriormente")
+    void exchangeItemAlreadyExchanged() {
+        OrderItem item = order.getOrderItems().get(0);
+        item.setStatus(OrderItemStatus.EXCHANGED); // Já foi consumido
+
+        User admin = new User("admin@ifnmg.edu.br", "hashed_pwd", "Admin", "98765432100");
+
+        when(orderItemRepository.findById(item.getId())).thenReturn(Optional.of(item));
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> 
+            orderService.exchangeItem(item.getId(), admin)
+        );
+
+        assertTrue(exception.getMessage().contains("já foi trocado anteriormente"));
+        verify(orderItemRepository, times(1)).findById(item.getId());
+        verify(orderItemRepository, never()).save(any(OrderItem.class));
     }
 }

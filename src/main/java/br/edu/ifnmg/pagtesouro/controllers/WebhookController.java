@@ -1,10 +1,13 @@
 package br.edu.ifnmg.pagtesouro.controllers;
 
+import br.edu.ifnmg.pagtesouro.infra.pagtesouro.PagTesouroProperties;
 import br.edu.ifnmg.pagtesouro.infra.pagtesouro.dto.WebhookRequestDTO;
 import br.edu.ifnmg.pagtesouro.services.payment.PaymentSyncService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Controlador REST responsável por receber as notificações assíncronas de webhook (notificação de pagamento)
@@ -17,9 +20,11 @@ import reactor.core.publisher.Mono;
 public class WebhookController {
 
   private final PaymentSyncService paymentSyncService;
+  private final PagTesouroProperties properties;
 
-  public WebhookController(PaymentSyncService paymentSyncService) {
+  public WebhookController(PaymentSyncService paymentSyncService, PagTesouroProperties properties) {
     this.paymentSyncService = paymentSyncService;
+      this.properties = properties;
   }
 
   /**
@@ -30,9 +35,22 @@ public class WebhookController {
    * @return Um Mono com resposta HTTP 200 OK vazia.
    */
   @PostMapping("/webhook")
-  public Mono<ResponseEntity<Void>> handleWebhook(@RequestBody WebhookRequestDTO request) {
+  public Mono<ResponseEntity<Void>> handleWebhook(
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @RequestBody WebhookRequestDTO request
+  ) {
+
+    //Valida a existência do token e assinatura do cabeçalho Bearer do governo.
+    if (auth == null || !auth.startsWith("Bearer "))
+      return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
+
+    String token = auth.replace("Bearer ", "");
+    if(!token.equals(properties.token_salinas()))
+      return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
+
     // Dispara a sincronização de forma reativa em background (sem travar a resposta)
     paymentSyncService.syncPaymentStatus(request.idPayment())
+        .publishOn(Schedulers.boundedElastic())
         .subscribe(
             success -> System.out.println("Sincronização de pagamento realizada com sucesso para o ID: " + request.idPayment()),
             error -> System.err.println("Erro ao processar sincronização de webhook: " + error.getMessage())
