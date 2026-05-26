@@ -15,11 +15,9 @@ import br.edu.ifnmg.pagtesouro.infra.pagtesouro.dto.PagTesouroRequestDTO;
 import br.edu.ifnmg.pagtesouro.repository.OrderRepository;
 import br.edu.ifnmg.pagtesouro.repository.PaymentRepository;
 import br.edu.ifnmg.pagtesouro.repository.ProductRepository;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 import java.math.BigDecimal;

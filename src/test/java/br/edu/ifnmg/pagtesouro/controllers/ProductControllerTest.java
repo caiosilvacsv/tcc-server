@@ -14,7 +14,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -70,7 +69,7 @@ class ProductControllerTest {
         );
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({ "rawtypes" })
     @Test
     @DisplayName("Usuário comum requisitando getAll com activeOnly=false deve ver apenas ativos")
     void getAllForNormalUserFailsToSeeInactive() {
@@ -96,7 +95,7 @@ class ProductControllerTest {
         SecurityContextHolder.clearContext();
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({ "rawtypes" })
     @Test
     @DisplayName("Administrador requisitando getAll com activeOnly=false deve ver todos os produtos")
     void getAllForAdminSeesAll() {
@@ -122,7 +121,7 @@ class ProductControllerTest {
         SecurityContextHolder.clearContext();
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({ "rawtypes" })
     @Test
     @DisplayName("Administrador requisitando getAll com activeOnly=true deve ver apenas ativos")
     void getAllForAdminActiveOnly() {
