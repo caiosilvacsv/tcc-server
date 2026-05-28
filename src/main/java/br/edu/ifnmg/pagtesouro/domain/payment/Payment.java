@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Generated;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -46,6 +47,7 @@ public class Payment {
      * enviado como o parâmetro 'referencia' exigido pela API do PagTesouro.
      */
     @Column(name = "reference_number", unique = true, insertable = false, updatable = false)
+    @Generated
     private Long referenceNumber;
 
     /**
@@ -63,7 +65,8 @@ public class Payment {
     /**
      * Mês e ano de competência da cobrança (formato MMYYYY).
      */
-    @Column(name = "competence", length = 6, updatable = false)
+    @Convert(converter = CompetenceConverter.class)
+    @Column(name = "competence", updatable = false)
     private String competence;
 
     /**

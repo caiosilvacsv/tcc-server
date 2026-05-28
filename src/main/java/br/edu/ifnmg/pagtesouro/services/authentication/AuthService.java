@@ -93,6 +93,7 @@ public class AuthService {
         data.email(),
         password,
         data.name(),
+        data.last_name(),
         cpf
     );
     userRepository.save(user);

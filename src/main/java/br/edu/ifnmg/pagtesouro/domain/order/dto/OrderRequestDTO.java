@@ -1,5 +1,7 @@
 package br.edu.ifnmg.pagtesouro.domain.order.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,6 +19,8 @@ import java.util.UUID;
  * @author Caio da Silva Viana
  */
 public record OrderRequestDTO(
+    @JsonProperty("itemsList")
+    @JsonAlias({"items_list", "itemsList"})
     List<items> itemsList
 ) {
     /**
@@ -26,7 +30,12 @@ public record OrderRequestDTO(
      * @param quantity Quantidade inteira de unidades solicitadas do referido produto
      */
     public record items(
+        @JsonProperty("productId")
+        @JsonAlias({"product_id", "productId"})
         UUID productId,
+
+        @JsonProperty("quantity")
+        @JsonAlias("quantity")
         Integer quantity
     ){}
 }

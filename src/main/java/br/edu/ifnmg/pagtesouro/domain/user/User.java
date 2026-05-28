@@ -52,7 +52,7 @@ public class User implements UserDetails {
     private String email;
 
     /**
-     * Nome completo do usuário.
+     * Nome do usuário.
      * <p>
      * **Importância:** Este campo é enviado no JSON de solicitação de pagamento ao PagTesouro,
      * constando fisicamente como o "Nome do Contribuinte" na Guia de Recolhimento da União (GRU).
@@ -61,6 +61,17 @@ public class User implements UserDetails {
     @NotNull
     @Column(nullable = false)
     private String name;
+
+    /**
+     * Sobrenome do usuário.
+     * <p>
+     * **Importância:** Este campo é enviado no JSON de solicitação de pagamento ao PagTesouro,
+     * constando fisicamente como o "Nome do Contribuinte" na Guia de Recolhimento da União (GRU).
+     * </p>
+     */
+    @NotNull
+    @Column(nullable = false)
+    private String lastName;
 
     /**
      * Senha criptografada por meio do algoritmo BCrypt.
@@ -83,7 +94,14 @@ public class User implements UserDetails {
     /**
      * Perfil de privilégios/acesso do usuário.
      * Salvo como texto no banco de dados PostgreSQL.
+     * -- SETTER --
+     *  Define o perfil de acesso do usuário.
+     *  Método essencial utilizado para promoção segura de permissões no startup (TCC DevOps).
+     *
+     * @param role O novo perfil de privilégios
+
      */
+    @Setter
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -112,12 +130,36 @@ public class User implements UserDetails {
      * @param name     Nome completo
      * @param cpf      CPF (apenas dígitos)
      */
-    public User(String email, String password, String name, String cpf) {
+    public User(String email, String password, String name, String lastName, String cpf) {
         this.email = email;
         this.password = password;
         this.name = name;
+        this.lastName = lastName;
         this.cpf = cpf;
         this.role = UserRoles.USER;
+    }
+
+    /**
+     * Construtor de compatibilidade utilizado em testes legados que esperavam 4 parâmetros de texto.
+     * Define lastName como vazio e o perfil padrão inicial como USER.
+     */
+    public User(String email, String password, String name, String cpf) {
+        this(email, password, name, "", cpf);
+    }
+
+    /**
+     * Construtor de compatibilidade completo de 8 parâmetros utilizado para instanciar mock em testes.
+     */
+    public User(UUID id, String email, String name, String password, String cpf, UserRoles role, Instant createdAt, Instant updatedAt) {
+        this.id = id;
+        this.email = email;
+        this.name = name;
+        this.lastName = "";
+        this.password = password;
+        this.cpf = cpf;
+        this.role = role;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     /**
@@ -190,4 +232,5 @@ public class User implements UserDetails {
     public boolean isEnabled() {
         return true; // Usuário ativo
     }
+
 }

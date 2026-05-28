@@ -22,10 +22,15 @@ public class PaymentSyncService {
 
   private final PaymentRepository paymentRepository;
   private final PagTesouroClient pagTesouroClient;
+  private final PaymentNotificationService paymentNotificationService;
 
-  public PaymentSyncService(PaymentRepository paymentRepository, PagTesouroClient pagTesouroClient) {
+  public PaymentSyncService(
+      PaymentRepository paymentRepository,
+      PagTesouroClient pagTesouroClient,
+      PaymentNotificationService paymentNotificationService) {
     this.paymentRepository = paymentRepository;
     this.pagTesouroClient = pagTesouroClient;
+    this.paymentNotificationService = paymentNotificationService;
   }
 
   /**
@@ -59,6 +64,8 @@ public class PaymentSyncService {
                 item.setPaidAt(payment.getPaidAt());
               }
             }
+            // Dispara a notificação de Server-Sent Events (SSE) para o frontend em tempo real
+            paymentNotificationService.notifyPaymentPaid(payment.getId(), "COMPLETED");
           }
 
           // Persiste as informações de liquidação no Postgres

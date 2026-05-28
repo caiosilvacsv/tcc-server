@@ -5,14 +5,13 @@ info:
 
 http:
   method: POST
-  url: "{{localhost}}auth/register"
+  url: "{{localhost}}auth/login"
   body:
     type: json
     data: |-
       {
-        "login" : "caio",
-        "password" : "1234",
-        "role":"ADMIN"
+        "email" : "caio@ifnmg.edu.br",
+        "password" : "1234"
       }
   auth: inherit
 

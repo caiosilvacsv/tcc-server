@@ -7,7 +7,12 @@ import br.edu.ifnmg.pagtesouro.domain.payment.Payment;
 import br.edu.ifnmg.pagtesouro.domain.payment.PaymentStatus;
 import br.edu.ifnmg.pagtesouro.domain.payment.dto.CheckoutRequestDTO;
 import br.edu.ifnmg.pagtesouro.domain.payment.dto.CheckoutResponseDTO;
+import br.edu.ifnmg.pagtesouro.domain.payment.dto.PaymentHistoryResponseDTO;
 import br.edu.ifnmg.pagtesouro.domain.product.Product;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import br.edu.ifnmg.pagtesouro.domain.product.ProductCategory;
 import br.edu.ifnmg.pagtesouro.domain.user.User;
 import br.edu.ifnmg.pagtesouro.infra.pagtesouro.PagTesouroClient;
@@ -137,6 +142,7 @@ class PaymentServiceTest {
 
         when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
         when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
+        when(paymentRepository.saveAndFlush(any(Payment.class))).thenReturn(payment);
         when(pagTesouroClient.getProperties()).thenReturn(properties);
         when(pagTesouroClient.createPayment(any())).thenReturn(Mono.just(ptResponse));
 
@@ -149,7 +155,8 @@ class PaymentServiceTest {
         assertEquals(new BigDecimal("2.50"), response.amount());
 
         verify(productRepository, times(1)).findById(product.getId());
-        verify(paymentRepository, times(2)).save(any(Payment.class));
+        verify(paymentRepository, times(1)).saveAndFlush(any(Payment.class));
+        verify(paymentRepository, times(1)).save(any(Payment.class));
         verify(pagTesouroClient, times(1)).createPayment(any());
     }
 
@@ -167,6 +174,7 @@ class PaymentServiceTest {
 
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
         when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
+        when(paymentRepository.saveAndFlush(any(Payment.class))).thenReturn(payment);
         when(pagTesouroClient.getProperties()).thenReturn(properties);
         when(pagTesouroClient.createPayment(any())).thenReturn(Mono.just(ptResponse));
 
@@ -178,7 +186,27 @@ class PaymentServiceTest {
         assertEquals("https://valpagtesouro.tesouro.gov.br/iframe-url", response.nextUrl());
 
         verify(orderRepository, times(1)).findById(order.getId());
-        verify(paymentRepository, times(2)).save(any(Payment.class));
+        verify(paymentRepository, times(1)).saveAndFlush(any(Payment.class));
+        verify(paymentRepository, times(1)).save(any(Payment.class));
         verify(pagTesouroClient, times(1)).createPayment(any());
+    }
+
+    @Test
+    @DisplayName("Deve buscar o histórico paginado de pagamentos do estudante com sucesso")
+    void getMyPaymentsSuccess() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Payment> page = new PageImpl<>(java.util.List.of(payment));
+
+        when(paymentRepository.findByContributorCpfCnpj(user.getCpf(), pageable)).thenReturn(page);
+
+        Mono<Page<PaymentHistoryResponseDTO>> result = paymentService.getMyPayments(user, pageable);
+        Page<PaymentHistoryResponseDTO> response = result.block();
+
+        assertNotNull(response);
+        assertEquals(1, response.getTotalElements());
+        assertEquals(payment.getId(), response.getContent().get(0).id());
+        assertEquals(payment.getAmount(), response.getContent().get(0).amount());
+
+        verify(paymentRepository, times(1)).findByContributorCpfCnpj(user.getCpf(), pageable);
     }
 }

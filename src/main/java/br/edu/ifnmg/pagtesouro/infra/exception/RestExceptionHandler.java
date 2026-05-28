@@ -99,6 +99,7 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
    */
   @ExceptionHandler(SecurityException.class)
   private @NonNull ResponseEntity<RestErrorMessage> handleSecurityException(SecurityException e) {
+    e.printStackTrace();
     RestErrorMessage restErrorMessage = new RestErrorMessage(HttpStatus.FORBIDDEN, e.getMessage());
     return ResponseEntity.status(HttpStatus.FORBIDDEN).body(restErrorMessage);
   }
@@ -109,7 +110,14 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
    */
   @ExceptionHandler(RuntimeException.class)
   private @NonNull ResponseEntity<RestErrorMessage> runtimeException(RuntimeException e) {
-    RestErrorMessage restErrorMessage = new RestErrorMessage(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+    e.printStackTrace();
+    String message = e.getMessage();
+    if (e instanceof org.springframework.web.reactive.function.client.WebClientResponseException) {
+        org.springframework.web.reactive.function.client.WebClientResponseException wcre =
+            (org.springframework.web.reactive.function.client.WebClientResponseException) e;
+        message += " - Response Body: " + wcre.getResponseBodyAsString();
+    }
+    RestErrorMessage restErrorMessage = new RestErrorMessage(HttpStatus.INTERNAL_SERVER_ERROR, message);
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(restErrorMessage);
   }
 
@@ -119,6 +127,7 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
    */
   @ExceptionHandler(Exception.class)
   private @NonNull ResponseEntity<RestErrorMessage> exception(Exception e) {
+    e.printStackTrace();
     RestErrorMessage restErrorMessage = new RestErrorMessage(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(restErrorMessage);
   }

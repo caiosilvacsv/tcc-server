@@ -49,7 +49,7 @@ public class OrderController {
      * @param user O usuário autenticado injetado pelo Spring Security.
      * @return Lista com o histórico de pedidos e status 200 OK.
      */
-    @GetMapping
+    @GetMapping({"", "/my-tickets"})
     public ResponseEntity<List<OrderResponseDTO>> getUserOrders(@AuthenticationPrincipal User user) {
         List<OrderResponseDTO> orders = orderService.getUserOrders(user);
         return ResponseEntity.ok(orders);
@@ -62,7 +62,7 @@ public class OrderController {
      * @param user O usuário autenticado.
      * @return Os detalhes do pedido ou erro de permissão (segurança) com status 200 OK.
      */
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}}")
     public ResponseEntity<OrderResponseDTO> getOrderById(
             @PathVariable UUID id,
             @AuthenticationPrincipal User user) {

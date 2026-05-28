@@ -37,6 +37,9 @@ class PaymentSyncServiceTest {
     @Mock
     private PaymentRepository paymentRepository;
 
+    @Mock
+    private PaymentNotificationService paymentNotificationService;
+
     @InjectMocks
     private PaymentSyncService paymentSyncService;
 
@@ -93,5 +96,6 @@ class PaymentSyncServiceTest {
         verify(pagTesouroClient, times(1)).getPaymentStatus("pt-payment-123");
         verify(paymentRepository, times(1)).findByPagtesouroPaymentId("pt-payment-123");
         verify(paymentRepository, times(1)).save(payment);
+        verify(paymentNotificationService, times(1)).notifyPaymentPaid(payment.getId(), "COMPLETED");
     }
 }

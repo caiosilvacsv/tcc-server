@@ -1,0 +1,17 @@
+info:
+  name: Listar Tíquetes do Aluno (my-tickets)
+  type: http
+  seq: 15
+
+http:
+  method: GET
+  url: "{{localhost}}api/orders/my-tickets"
+  body:
+    type: none
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -2,6 +2,8 @@ package br.edu.ifnmg.pagtesouro.repository;
 
 import br.edu.ifnmg.pagtesouro.domain.payment.Payment;
 import br.edu.ifnmg.pagtesouro.domain.payment.PaymentStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -41,4 +43,14 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
      * @return Uma lista de pagamentos correspondentes localizados
      */
     List<Payment> findAllByStatusAndCreatedAtBefore(PaymentStatus status, Instant createdAt);
+
+    /**
+     * Localiza e pagina o histórico de tentativas de pagamento efetuadas por um contribuinte específico.
+     * Utilizado para alimentar a tela de histórico financeiro do estudante logado no portal.
+     *
+     * @param contributorCpfCnpj O CPF/CNPJ de quem realizou a solicitação de guia
+     * @param pageable Configuração de paginação (número de página, tamanho e ordenação)
+     * @return Uma página contendo os pagamentos correspondentes localizados
+     */
+    Page<Payment> findByContributorCpfCnpj(String contributorCpfCnpj, Pageable pageable);
 }

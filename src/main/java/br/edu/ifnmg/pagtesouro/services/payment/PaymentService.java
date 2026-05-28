@@ -7,7 +7,10 @@ import br.edu.ifnmg.pagtesouro.domain.payment.Payment;
 import br.edu.ifnmg.pagtesouro.domain.payment.PaymentStatus;
 import br.edu.ifnmg.pagtesouro.domain.payment.dto.CheckoutRequestDTO;
 import br.edu.ifnmg.pagtesouro.domain.payment.dto.CheckoutResponseDTO;
+import br.edu.ifnmg.pagtesouro.domain.payment.dto.PaymentHistoryResponseDTO;
 import br.edu.ifnmg.pagtesouro.domain.product.Product;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import br.edu.ifnmg.pagtesouro.domain.user.User;
 import br.edu.ifnmg.pagtesouro.exceptions.FindException;
 import br.edu.ifnmg.pagtesouro.infra.pagtesouro.PagTesouroClient;
@@ -17,6 +20,7 @@ import br.edu.ifnmg.pagtesouro.repository.PaymentRepository;
 import br.edu.ifnmg.pagtesouro.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -66,6 +70,13 @@ public class PaymentService {
       throw new IllegalArgumentException("A quantidade deve ser maior ou igual a 1 para checkout direto!");
     }
 
+    if (request.contributorCpfCnpj() == null || request.contributorCpfCnpj().trim().isEmpty()) {
+      throw new IllegalArgumentException("O CPF/CNPJ do pagador é obrigatório para checkout simplificado!");
+    }
+    if (request.contributorName() == null || request.contributorName().trim().isEmpty()) {
+      throw new IllegalArgumentException("O nome do pagador é obrigatório para checkout simplificado!");
+    }
+
     Product product = productRepository.findById(request.productID())
         .orElseThrow(() -> new FindException("Produto com ID " + request.productID() + " não localizado."));
 
@@ -95,8 +106,15 @@ public class PaymentService {
 
     // Efetua a chamada HTTP reativa ao PagTesouro e atualiza o registro local com a resposta
     return pagTesouroClient.createPayment(ptRequest)
+        .onErrorMap(WebClientResponseException.class, ex -> {
+            String details = ex.getResponseBodyAsString();
+            if (ex.getStatusCode().value() == 403 || ex.getStatusCode().value() == 401) {
+                return new IllegalArgumentException("Erro de autenticação com o PagTesouro (Salinas). Verifique se o Token de Salinas está configurado corretamente e é válido. Detalhes: " + details);
+            }
+            return new RuntimeException("Erro na integração com o PagTesouro: " + ex.getStatusCode() + " - Detalhes: " + details, ex);
+        })
         .publishOn(Schedulers.boundedElastic())
-          .flatMap( ptResponse -> {
+        .flatMap( ptResponse -> {
           payment.setPagtesouroPaymentId(ptResponse.idPayment());
           payment.setNextUrl(ptResponse.nextUrl());
 
@@ -151,11 +169,27 @@ public class PaymentService {
     payment.setStatus(PaymentStatus.CREATED);
     payment.setCompetence(LocalDate.now().format(DateTimeFormatter.ofPattern("MMyyyy")));
     payment.setExpiredAt(LocalDate.now().plusDays(2));
-    payment.setContributorName(request.contributorName());
-    payment.setContributorCpfCnpj(request.contributorCpfCnpj());
+    String fullName = user.getName();
+    if (user.getLastName() != null && !user.getLastName().trim().isEmpty()) {
+        fullName += " " + user.getLastName();
+    }
+
+    String contributorName = (request.contributorName() != null && !request.contributorName().trim().isEmpty())
+        ? request.contributorName() : fullName;
+
+    // Truncamento defensivo para respeitar o limite de 45 caracteres da coluna VARCHAR(45) no banco
+    if (contributorName.length() > 45) {
+        contributorName = contributorName.substring(0, 45);
+    }
+
+    String contributorCpf = (request.contributorCpfCnpj() != null && !request.contributorCpfCnpj().trim().isEmpty())
+        ? request.contributorCpfCnpj() : user.getCpf();
+
+    payment.setContributorName(contributorName);
+    payment.setContributorCpfCnpj(contributorCpf);
     payment.setOrderItems(pendingItems); // Mapeamento bidirecional seguro na tabela 'payment_items'
 
-    Payment savedPayment = paymentRepository.save(payment);
+    Payment savedPayment = paymentRepository.saveAndFlush(payment);
 
     // 6. Obtém o código de serviço para o SISGRU (assumindo o primeiro produto dos itens)
     String serviceCode = pendingItems.get(0).getProduct().getCodeService();
@@ -180,6 +214,13 @@ public class PaymentService {
 
     // 8. Efetua a requisição reativa não-bloqueante
     return pagTesouroClient.createPayment(ptRequest)
+        .onErrorMap(WebClientResponseException.class, ex -> {
+            String details = ex.getResponseBodyAsString();
+            if (ex.getStatusCode().value() == 403 || ex.getStatusCode().value() == 401) {
+                return new IllegalArgumentException("Erro de autenticação com o PagTesouro (Salinas). Verifique se o Token de Salinas está configurado corretamente e é válido. Detalhes: " + details);
+            }
+            return new RuntimeException("Erro na integração com o PagTesouro: " + ex.getStatusCode() + " - Detalhes: " + details, ex);
+        })
         .publishOn(Schedulers.boundedElastic())
         .flatMap(ptResponse -> {
           savedPayment.setPagtesouroPaymentId(ptResponse.idPayment());
@@ -194,6 +235,22 @@ public class PaymentService {
               saved.getNextUrl()
           ));
         });
+  }
+
+  /**
+   * Resgata de forma paginada e reativa o histórico de todas as faturas e tentativas de pagamento
+   * efetuadas pelo contribuinte logado no portal com base em seu CPF.
+   *
+   * @param user O usuário estudante autenticado requisitante
+   * @param pageable Configuração de paginação (número de página, tamanho e ordenação)
+   * @return Um {@link Mono} contendo a página de DTOs correspondente
+   */
+  @Transactional(readOnly = true)
+  public Mono<Page<PaymentHistoryResponseDTO>> getMyPayments(User user, Pageable pageable) {
+    return Mono.fromCallable(() -> {
+      Page<Payment> payments = paymentRepository.findByContributorCpfCnpj(user.getCpf(), pageable);
+      return payments.map(PaymentHistoryResponseDTO::new);
+    }).subscribeOn(Schedulers.boundedElastic());
   }
 
   /**
@@ -215,6 +272,6 @@ public class PaymentService {
     payment.setContributorName(request.contributorName());
     payment.setContributorCpfCnpj(request.contributorCpfCnpj());
 
-    return paymentRepository.save(payment);
+    return paymentRepository.saveAndFlush(payment);
   }
 }

@@ -14,4 +14,15 @@ public record PagTesouroProperties(
     String token_salinas,
     String url_notificacao
 ) {
+  public PagTesouroProperties {
+    if (base_url != null) {
+      base_url = base_url.replace("\"", "").replace("'", "").trim();
+    }
+    if (token_salinas != null) {
+      token_salinas = token_salinas.replace("\"", "").replace("'", "").trim();
+    }
+    if (url_notificacao != null) {
+      url_notificacao = url_notificacao.replace("\"", "").replace("'", "").trim();
+    }
+  }
 }
