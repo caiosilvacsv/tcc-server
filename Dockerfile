@@ -4,7 +4,11 @@
 # ==============================================================================
 
 # --- Estágio 1: Compilação (Build) ---
-FROM maven:3.9.9-eclipse-temurin-25-alpine AS builder
+FROM eclipse-temurin:25-jdk-alpine AS builder
+
+# Instala o Maven leve no Alpine
+RUN apk add --no-cache maven
+
 WORKDIR /build
 
 # Copia os arquivos de configuração do Maven e o código-fonte
