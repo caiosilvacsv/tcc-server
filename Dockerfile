@@ -1,20 +1,28 @@
 # ==============================================================================
-# Dockerfile para o backend do TCC (tcc-server)
+# Dockerfile Multiestágio para o backend do TCC (tcc-server)
+# Garante a compilação e execução seguras usando Java 25 no Render/nuvem
 # ==============================================================================
-# Baseado na JRE 25 (Java Runtime Environment) sobre Alpine Linux para garantir
-# uma imagem extremamente leve, segura e otimizada para o deploy de produção.
-# ==============================================================================
-FROM eclipse-temurin:25-jre-alpine
 
-# Define o diretório de trabalho interno do container
+# --- Estágio 1: Compilação (Build) ---
+FROM maven:3.9.9-eclipse-temurin-25-alpine AS builder
+WORKDIR /build
+
+# Copia os arquivos de configuração do Maven e o código-fonte
+COPY pom.xml .
+COPY src ./src
+
+# Compila o projeto e empacota o JAR pulando os testes unitários no deploy
+RUN mvn clean package -DskipTests
+
+# --- Estágio 2: Execução (Runtime) ---
+FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
 
-# Copia o JAR empacotado pelo Maven (target/) para dentro do container
-# Dica: Execute 'mvn clean package -DskipTests' localmente antes de rodar o docker-build
-COPY target/tcc-server-0.0.1-SNAPSHOT.jar app.jar
+# Copia apenas o JAR compilado do estágio anterior para manter a imagem leve
+COPY --from=builder /build/target/tcc-server-0.0.1-SNAPSHOT.jar app.jar
 
-# Expõe a porta lógica padrão do Spring Boot
+# Expõe a porta padrão do Spring Boot
 EXPOSE 8080
 
-# Define a instrução de inicialização do container Java com otimizações de memória
+# Comando de inicialização otimizado para produção
 ENTRYPOINT ["java", "-XX:+UseG1GC", "-jar", "app.jar"]

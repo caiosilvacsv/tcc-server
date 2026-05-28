@@ -3,7 +3,6 @@ package br.edu.ifnmg.pagtesouro.domain.payment.dto;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
 import java.util.UUID;
 
 /**

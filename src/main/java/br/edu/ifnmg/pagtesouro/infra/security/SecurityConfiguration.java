@@ -16,6 +16,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import java.util.Arrays;
+import java.util.List;
+
 import br.edu.ifnmg.pagtesouro.infra.pagtesouro.PagTesouroProperties;
 
 /**
@@ -32,6 +39,9 @@ public class SecurityConfiguration {
   @Autowired
   SecurityFilter securityFilter;
 
+  @Value("${api.security.cors.allowed-origins:*}")
+  private String allowedOrigins;
+
   /**
    * Define o filtro de segurança (Security Filter Chain), configurando quais rotas são públicas
    * e quais exigem perfis específicos de autorização.
@@ -42,6 +52,7 @@ public class SecurityConfiguration {
   @Bean
   public SecurityFilterChain securityFilterChain (HttpSecurity http) throws Exception {
     return http
+        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         .csrf(AbstractHttpConfigurer::disable)
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
@@ -57,6 +68,25 @@ public class SecurityConfiguration {
         )
         .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
         .build();
+  }
+
+  @Bean
+  public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration configuration = new CorsConfiguration();
+    if ("*".equals(allowedOrigins)) {
+      configuration.setAllowedOrigins(List.of("*"));
+      configuration.setAllowCredentials(false);
+    } else {
+      configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+      configuration.setAllowCredentials(true);
+    }
+    configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+    configuration.setAllowedHeaders(Arrays.asList("Authorization", "Cache-Control", "Content-Type"));
+    configuration.setExposedHeaders(List.of("Authorization"));
+    
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", configuration);
+    return source;
   }
 
   @Bean
