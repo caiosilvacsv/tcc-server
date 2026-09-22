@@ -1,0 +1,31 @@
+name: CI - Build & Test Suite
+
+# Executa em pushes e pull requests nas branches principais e ativas
+on:
+  push:
+    branches: [ main, master, product ]
+  pull_request:
+    branches: [ main, master, product ]
+  workflow_dispatch: # Permite disparo manual direto pelo painel do GitHub
+
+jobs:
+  test:
+    name: Build & Testes Automatizados (Java 25)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do Código-Fonte
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 25 (Eclipse Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Executar 94 Testes Automatizados (JUnit 5 + Mockito)
+        run: mvn --batch-mode --no-transfer-progress clean test
+
+      - name: Validar Empacotamento do JAR Executável
+        run: mvn --batch-mode --no-transfer-progress package -DskipTests
