@@ -1,0 +1,36 @@
+info:
+  name: WebhookSimulate
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{host}}payment/webhook"
+  body:
+    type: json
+    data: |-
+      {
+        "idPagamento": "VcGbTOTdU4puciMuZX4swo",
+        "dataHora": "{{horarioAtual}}"
+      }
+  auth:
+    type: bearer
+    token: pt-sim-12783bbb0a094203b900dfd2751e20671789683683070
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        const agora = new Date().toISOString();
+        bru.setVar('horarioAtual', agora);
+    - type: after-response
+      code: |-
+        const agora = new Date().toISOString();
+        bru.setVar('horarioAtual', agora);
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

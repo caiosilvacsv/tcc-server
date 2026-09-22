@@ -1,0 +1,22 @@
+info:
+  name: Efetuar Baixa/Troca Física [ADMIN]
+  type: http
+  seq: 9
+
+http:
+  method: PUT
+  url: "{{host}}orders/items/:idItem/exchange"
+  params:
+    - name: idItem
+      value: aa7463cb-a27a-420d-9aad-258165fdec54
+      type: path
+  auth:
+    type: bearer
+    token: "{{tokenADMIN}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

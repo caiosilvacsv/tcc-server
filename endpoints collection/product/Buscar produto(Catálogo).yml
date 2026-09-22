@@ -1,0 +1,19 @@
+info:
+  name: Buscar produto(Catálogo)
+  type: http
+  seq: 6
+
+http:
+  method: GET
+  url: "{{host}}product/:id"
+  params:
+    - name: id
+      value: 5d2c971c-b193-48c3-966d-066fe25c8a9f
+      type: path
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

@@ -1,0 +1,22 @@
+info:
+  name: Deletar Produto (ADMIN)
+  type: http
+  seq: 8
+
+http:
+  method: DELETE
+  url: "{{host}}product/:id"
+  params:
+    - name: id
+      value: e59e42b2-d887-4e37-aa65-11f1b0b5ef8f
+      type: path
+  auth:
+    type: bearer
+    token: "{{tokenADMIN}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

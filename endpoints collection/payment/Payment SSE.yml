@@ -1,0 +1,23 @@
+info:
+  name: Payment SSE
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: "{{host}}payments/:paymentID/sse"
+  headers:
+    - name: Accept
+      value: text/event-stream
+  params:
+    - name: paymentID
+      value: 625608eb-e81a-4827-bdd8-aa1e40066046
+      type: path
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

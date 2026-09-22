@@ -1,0 +1,28 @@
+info:
+  name: Cadastrar Novo Produto (ADMIN) error
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{host}}product"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Inscrição Processo Seletivo IFNMG",
+        "description": "Taxa de inscrição para o processo seletivo institucional do IFNMG.",
+        "image": "vestibular.png",
+        "price": 50.00,
+        "active": true,
+        "codeService": "028045",
+        "category": "TICKET"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

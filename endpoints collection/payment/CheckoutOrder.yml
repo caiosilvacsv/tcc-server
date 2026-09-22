@@ -1,0 +1,22 @@
+info:
+  name: Checkout de Pedido Existente
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{host}}payments/checkout/:orderId"
+  params:
+    - name: orderId
+      value: 625608eb-e81a-4827-bdd8-aa1e40066046
+      type: path
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

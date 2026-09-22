@@ -1,6 +1,11 @@
 CREATE TABLE users(
-    id UUID PRIMARY KEY UNIQUE NOT NULL,
-    login TEXT UNIQUE NOT NULL,
+    id UUID PRIMARY KEY NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
     password TEXT NOT NULL,
-    role TEXT NOT NULL
+    name VARCHAR(255),
+    last_name VARCHAR(255),
+    cpf VARCHAR(11),
+    role VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE
 );

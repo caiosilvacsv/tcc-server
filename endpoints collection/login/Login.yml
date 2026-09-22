@@ -1,0 +1,33 @@
+info:
+  name: Login
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{host}}auth/login"
+  body:
+    type: json
+    data: |-
+      {
+        "email" : "caio@ifnmg.edu.br",
+        "password" : "1234"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        // Pega o token da resposta e salva na variável de ambiente do Bruno
+        if (res.body && res.body.token) {
+            bru.setVar("token", res.body.token);
+            console.log("Token JWT salvo com sucesso!");
+        }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
