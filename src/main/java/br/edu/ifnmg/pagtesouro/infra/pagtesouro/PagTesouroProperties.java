@@ -11,15 +11,15 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "api.pagtesouro")
 public record PagTesouroProperties(
     String base_url,
-    String token_salinas,
+    String token,
     String url_notificacao
 ) {
   public PagTesouroProperties {
     if (base_url != null) {
       base_url = base_url.replace("\"", "").replace("'", "").trim();
     }
-    if (token_salinas != null) {
-      token_salinas = token_salinas.replace("\"", "").replace("'", "").trim();
+    if (token != null) {
+      token = token.replace("\"", "").replace("'", "").trim();
     }
     if (url_notificacao != null) {
       url_notificacao = url_notificacao.replace("\"", "").replace("'", "").trim();

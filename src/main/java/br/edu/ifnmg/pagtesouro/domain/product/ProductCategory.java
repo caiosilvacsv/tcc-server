@@ -19,17 +19,19 @@ public enum ProductCategory {
     /**
      * Categoria para Tíquetes físicos de alimentação (Almoço, Janta, Lanche) do refeitório.
      */
-    TICKET("ticket"),
+    TICKET("ticket", "Tíquete de Alimentação"),
 
     /**
      * Categoria para taxas e multas administrativas (como multas de atraso de livros da Biblioteca).
      */
-    FINE("fine");
+    FINE("fine", "Taxas e Multas Administrativas");
 
     private final String value;
+    private final String displayName;
 
-    ProductCategory(String value) {
+    ProductCategory(String value, String displayName) {
         this.value = value;
+        this.displayName = displayName;
     }
 
     /**

@@ -1,5 +1,6 @@
 package br.edu.ifnmg.pagtesouro.domain.payment;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.Getter;
 
@@ -46,11 +47,13 @@ public enum PaymentMethod {
 
     /**
      * Converte e valida uma string representativa do método de pagamento para o Enum correspondente de forma segura.
+     * Anotado com {@link JsonCreator} para compatibilidade com deserialização do Jackson em chamadas HTTP/Webhooks.
      *
      * @param value O texto correspondente ao método de pagamento (ex: "PIX", "CARTAO_CREDITO", "BOLETO")
      * @return O Enum {@link PaymentMethod} correspondente
      * @throws IllegalArgumentException se o valor fornecido for nulo ou inválido
      */
+    @JsonCreator
     public static PaymentMethod fromMethod(String value) {
         if (value == null) {
             throw new IllegalArgumentException("Meio de pagamento não pode ser nulo");

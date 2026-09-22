@@ -1,0 +1,22 @@
+info:
+  name: Consulta tickets troca [ADMIN]
+  type: http
+  seq: 5
+
+http:
+  method: GET
+  url: "{{host}}orders/tickets?cpf=92325651029"
+  params:
+    - name: cpf
+      value: "92325651029"
+      type: query
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

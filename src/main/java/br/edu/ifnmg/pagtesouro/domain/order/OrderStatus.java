@@ -30,7 +30,7 @@ public enum OrderStatus {
 
     /**
      * Estado especial no TCC: ocorre quando o pedido continha múltiplos itens com diferentes
-     * códigos de serviço (ex: tíquetes de RU + multas de biblioteca), e o aluno realizou o pagamento
+     * códigos de serviço (ex: tíquetes + multas de biblioteca), e o aluno realizou o pagamento
      * bem-sucedido de apenas uma parte das transações geradas, mantendo o restante pendente.
      */
     PARTIALLY_PAID("parcialmente pago"),

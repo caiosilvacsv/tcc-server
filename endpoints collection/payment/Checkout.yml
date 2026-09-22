@@ -1,0 +1,25 @@
+info:
+  name: Checkout Simplificado (Anônimo)
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{host}}payments/anonymous"
+  body:
+    type: json
+    data: |-
+      {
+        "productID": "5d2c971c-b193-48c3-966d-066fe25c8a9f",
+        "quantity": 2,
+        "contributorCpfCnpj": "92325651029",
+        "contributorName": "Testonildo Silva",
+        "isMobile" : false
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

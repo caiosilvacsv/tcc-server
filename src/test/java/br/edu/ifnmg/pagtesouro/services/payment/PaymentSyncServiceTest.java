@@ -7,6 +7,7 @@ import br.edu.ifnmg.pagtesouro.domain.payment.PaymentMethod;
 import br.edu.ifnmg.pagtesouro.domain.payment.PaymentStatus;
 import br.edu.ifnmg.pagtesouro.infra.pagtesouro.PagTesouroClient;
 import br.edu.ifnmg.pagtesouro.infra.pagtesouro.dto.PagTesouroQueryResponseDTO;
+import br.edu.ifnmg.pagtesouro.repository.OrderItemRepository;
 import br.edu.ifnmg.pagtesouro.repository.PaymentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -15,6 +16,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
@@ -38,7 +41,16 @@ class PaymentSyncServiceTest {
     private PaymentRepository paymentRepository;
 
     @Mock
+    private OrderItemRepository orderItemRepository;
+
+    @Mock
+    private br.edu.ifnmg.pagtesouro.repository.OrderRepository orderRepository;
+
+    @Mock
     private PaymentNotificationService paymentNotificationService;
+
+    @Mock
+    private TransactionTemplate transactionTemplate;
 
     @InjectMocks
     private PaymentSyncService paymentSyncService;
@@ -76,6 +88,10 @@ class PaymentSyncServiceTest {
     @DisplayName("Deve sincronizar status de pagamento COMPLETED e liquidar itens de pedido")
     void syncStatusCompleted() {
         when(pagTesouroClient.getPaymentStatus("pt-payment-123")).thenReturn(Mono.just(queryResponse));
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
         when(paymentRepository.findByPagtesouroPaymentId("pt-payment-123")).thenReturn(Optional.of(payment));
         when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
 
@@ -95,6 +111,7 @@ class PaymentSyncServiceTest {
 
         verify(pagTesouroClient, times(1)).getPaymentStatus("pt-payment-123");
         verify(paymentRepository, times(1)).findByPagtesouroPaymentId("pt-payment-123");
+        verify(orderItemRepository, times(1)).saveAll(payment.getOrderItems());
         verify(paymentRepository, times(1)).save(payment);
         verify(paymentNotificationService, times(1)).notifyPaymentPaid(payment.getId(), "COMPLETED");
     }

@@ -1,6 +1,7 @@
 package br.edu.ifnmg.pagtesouro.controllers;
 
 import br.edu.ifnmg.pagtesouro.domain.product.ProductCategory;
+import br.edu.ifnmg.pagtesouro.domain.product.dto.ProductCategoryResponseDTO;
 import br.edu.ifnmg.pagtesouro.domain.product.dto.ProductRequestDTO;
 import br.edu.ifnmg.pagtesouro.domain.product.dto.ProductResponseDTO;
 import br.edu.ifnmg.pagtesouro.services.product.ProductService;
@@ -17,6 +18,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.math.BigDecimal;
 import java.util.Collection;
@@ -48,7 +53,7 @@ class ProductControllerTest {
 
         activeProduct = new ProductResponseDTO(
             UUID.randomUUID(),
-            "Almoço - RU",
+            "Almoço",
             "Tíquete de almoço",
             "almoco.png",
             new BigDecimal("3.50"),
@@ -86,7 +91,7 @@ class ProductControllerTest {
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(1, response.getBody().size());
-        assertEquals("Almoço - RU", response.getBody().get(0).title());
+        assertEquals("Almoço", response.getBody().get(0).title());
         assertTrue(response.getBody().get(0).active());
 
         verify(productService, times(1)).findAllActive();
@@ -121,16 +126,9 @@ class ProductControllerTest {
         SecurityContextHolder.clearContext();
     }
 
-    @SuppressWarnings({ "rawtypes" })
     @Test
     @DisplayName("Administrador requisitando getAll com activeOnly=true deve ver apenas ativos")
     void getAllForAdminActiveOnly() {
-        when(securityContext.getAuthentication()).thenReturn(auth);
-        SecurityContextHolder.setContext(securityContext);
-
-        Collection authorities = List.of(new SimpleGrantedAuthority("ROLE_ADMIN"));
-        doReturn(authorities).when(auth).getAuthorities();
-
         when(productService.findAllActive()).thenReturn(List.of(activeProduct));
 
         ResponseEntity<List<ProductResponseDTO>> response = productController.getAll(true);
@@ -142,16 +140,11 @@ class ProductControllerTest {
 
         verify(productService, times(1)).findAllActive();
         verify(productService, never()).findAll();
-        
-        SecurityContextHolder.clearContext();
     }
 
     @Test
     @DisplayName("Usuário sem login (auth nulo) requisitando getAll deve ver apenas ativos")
     void getAllForAnonymousUserSuccess() {
-        when(securityContext.getAuthentication()).thenReturn(null);
-        SecurityContextHolder.setContext(securityContext);
-
         when(productService.findAllActive()).thenReturn(List.of(activeProduct));
 
         ResponseEntity<List<ProductResponseDTO>> response = productController.getAll(true);
@@ -159,12 +152,10 @@ class ProductControllerTest {
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(1, response.getBody().size());
-        assertEquals("Almoço - RU", response.getBody().get(0).title());
+        assertEquals("Almoço", response.getBody().get(0).title());
 
         verify(productService, times(1)).findAllActive();
         verify(productService, never()).findAll();
-        
-        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -184,23 +175,44 @@ class ProductControllerTest {
     @Test
     @DisplayName("Deve cadastrar produto com sucesso")
     void createSuccess() {
-        ProductRequestDTO request = new ProductRequestDTO(
-            "Almoço - RU",
-            "Tíquete de almoço",
-            "almoco.png",
-            new BigDecimal("3.50"),
-            true,
-            "028031",
-            ProductCategory.TICKET
-        );
+        MockHttpServletRequest mockRequest = new MockHttpServletRequest();
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(mockRequest));
+        try {
+            ProductRequestDTO request = new ProductRequestDTO(
+                "Almoço",
+                "Tíquete de almoço",
+                "almoco.png",
+                new BigDecimal("3.50"),
+                true,
+                "028031",
+                ProductCategory.TICKET
+            );
 
-        when(productService.create(request)).thenReturn(activeProduct);
+            when(productService.create(request)).thenReturn(activeProduct);
 
-        ResponseEntity<ProductResponseDTO> response = productController.create(request);
+            ResponseEntity<ProductResponseDTO> response = productController.create(request);
+
+            assertNotNull(response);
+            assertEquals(HttpStatus.CREATED, response.getStatusCode());
+            assertEquals(activeProduct.title(), response.getBody().title());
+            verify(productService, times(1)).create(request);
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+        }
+    }
+
+    @Test
+    @DisplayName("Deve retornar categorias de produtos com sucesso")
+    void getCategoriesSuccess() {
+        var categoryDto = new ProductCategoryResponseDTO(ProductCategory.TICKET);
+        when(productService.findCategories(true)).thenReturn(List.of(categoryDto));
+
+        ResponseEntity<List<ProductCategoryResponseDTO>> response = productController.getCategories(true);
 
         assertNotNull(response);
-        assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        assertEquals(activeProduct.title(), response.getBody().title());
-        verify(productService, times(1)).create(request);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(1, response.getBody().size());
+        assertEquals("TICKET", response.getBody().get(0).key());
+        verify(productService, times(1)).findCategories(true);
     }
 }

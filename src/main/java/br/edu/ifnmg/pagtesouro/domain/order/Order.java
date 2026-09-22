@@ -45,11 +45,25 @@ public class Order {
     private UUID id;
 
     /**
-     * O estudante ou usuário do IFNMG associado a este pedido.
+     * O estudante ou usuário institucional do IFNMG associado a este pedido.
+     * Permite valor nulo (null) para pedidos gerados através de checkout direto por visitantes externos.
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "user_id", nullable = true)
     private User user;
+
+    /**
+     * CPF ou CNPJ informado pelo visitante externo no checkout direto.
+     * Utilizado para localização do pedido e conferência cadastral no balcão de atendimento.
+     */
+    @Column(name = "guest_cpf", length = 14)
+    private String guestCpf;
+
+    /**
+     * Nome completo informado pelo visitante externo no checkout direto.
+     */
+    @Column(name = "guest_name", length = 45)
+    private String guestName;
 
     /**
      * Valor total consolidado em centavos de todos os itens do pedido.
@@ -122,6 +136,72 @@ public class Order {
 
         // Estado padrão: aguardando pagamento
         return OrderStatus.PENDING_PAYMENT;
+    }
+
+    /**
+     * Retorna o enquadramento do comprador com base na presença de usuário autenticado.
+     *
+     * @return {@link BuyerType#STUDENT} se houver usuário vinculado, ou {@link BuyerType#GUEST} caso contrário.
+     */
+    @Transient
+    public BuyerType getBuyerType() {
+        return this.user != null ? BuyerType.STUDENT : BuyerType.GUEST;
+    }
+
+    /**
+     * Retorna o CPF do comprador de forma unificada, priorizando o usuário autenticado.
+     *
+     * @return O CPF do estudante ou do visitante convidado.
+     */
+    @Transient
+    public String getBuyerCpf() {
+        return this.user != null ? this.user.getCpf() : this.guestCpf;
+    }
+
+    /**
+     * Retorna o nome completo do comprador de forma unificada, priorizando o usuário autenticado.
+     *
+     * @return O nome do estudante ou do visitante convidado.
+     */
+    @Transient
+    public String getBuyerName() {
+        if (this.user != null) {
+            String name = this.user.getName();
+            if (this.user.getLastName() != null && !this.user.getLastName().trim().isEmpty()) {
+                name += " " + this.user.getLastName().trim();
+            }
+            return name;
+        }
+        return this.guestName;
+    }
+
+    /**
+     * Efetua o cancelamento do pedido e de todos os seus itens pendentes.
+     * <p>
+     * **Regra de Negócio (DDD):**
+     * - Não permite o cancelamento se o pedido já possuir itens pagos ou resgatados.
+     * - Não permite cancelar um pedido que já se encontra cancelado (idempotência).
+     * - Marca os itens pendentes como {@link OrderItemStatus#CANCELLED} e preenche {@code cancelledAt}.
+     * </p>
+     *
+     * @throws IllegalStateException se o pedido já estiver pago ou previamente cancelado.
+     */
+    public void cancel() {
+        OrderStatus currentStatus = this.getStatus();
+        if (currentStatus == OrderStatus.COMPLETED || currentStatus == OrderStatus.PARTIALLY_PAID) {
+            throw new IllegalStateException("Não é permitido cancelar um pedido que já possui itens pagos ou resgatados.");
+        }
+        if (currentStatus == OrderStatus.CANCELLED) {
+            throw new IllegalStateException("Este pedido já se encontra cancelado.");
+        }
+        this.cancelledAt = Instant.now();
+        if (this.orderItems != null) {
+            for (OrderItem item : this.orderItems) {
+                if (item.getStatus() == OrderItemStatus.PENDING) {
+                    item.setStatus(OrderItemStatus.CANCELLED);
+                }
+            }
+        }
     }
 }
 

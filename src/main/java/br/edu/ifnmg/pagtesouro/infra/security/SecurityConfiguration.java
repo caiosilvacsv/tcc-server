@@ -1,5 +1,7 @@
 package br.edu.ifnmg.pagtesouro.infra.security;
 
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -48,6 +50,7 @@ public class SecurityConfiguration {
    *
    * @param http Objeto HttpSecurity para configurar a segurança web
    * @return Cadeia de filtros configurada
+   * @throws Exception Assegura que falhas no nível de filtro retornem respostas JSON padronizadas
    */
   @Bean
   public SecurityFilterChain securityFilterChain (HttpSecurity http) throws Exception {
@@ -56,20 +59,65 @@ public class SecurityConfiguration {
         .csrf(AbstractHttpConfigurer::disable)
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
+            .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
+            .requestMatchers(
+                "/swagger",
+                "/swagger/**",
+                "/swagger-ui/**",
+                "/swagger-ui.html",
+                "/v3/api-docs/**"
+            ).permitAll()
             .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
             .requestMatchers(HttpMethod.POST, "/auth/register").permitAll()
             .requestMatchers(HttpMethod.POST, "/payment/webhook").permitAll()
-            .requestMatchers(HttpMethod.POST, "/api/payments/anonymous").permitAll()
+            .requestMatchers(HttpMethod.POST, "/payments/anonymous").permitAll()
+            .requestMatchers(HttpMethod.GET, "/orders/guest").permitAll()
+            .requestMatchers(HttpMethod.GET, "/product/**").permitAll()
             .requestMatchers(HttpMethod.POST, "/product").hasRole("ADMIN")
             .requestMatchers(HttpMethod.PUT, "/product/**").hasRole("ADMIN")
             .requestMatchers(HttpMethod.DELETE, "/product/**").hasRole("ADMIN")
-            .requestMatchers(HttpMethod.GET, "/product/**").permitAll()
+            .requestMatchers(HttpMethod.PUT, "/orders/**").hasRole("ADMIN")
             .anyRequest().authenticated()
+        )
+        .exceptionHandling(ex -> ex
+            // Tratamento de exceção 403 (Usuário logado, mas sem permissão de ADMIN)
+            .accessDeniedHandler((req, res, accessDeniedException) ->{
+              res.setStatus(HttpServletResponse.SC_FORBIDDEN);
+              res.setContentType("application/json;charset=UTF-8");
+              res.getWriter().write("""
+                  {
+                    "status": 403,
+                    "error" : "Unauthorized",
+                    "message": "Acesso negado: Você não possui permissão de Adminstrador para realizar a ação."
+                  }
+                  """);
+            })
+            //Tratamento de exceção 401 (Token ausente, inválido ou expirado)
+            .authenticationEntryPoint((req, res, authException) ->{
+              res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+              res.setContentType("application/json;charset=UTF-8");
+              res.getWriter().write("""
+                  {
+                    "status": 401,
+                    "error" : "Unauthorized",
+                    "message": "Não autenticado: Token ausente ou inválido."
+                  }
+              """);
+            })
         )
         .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
         .build();
   }
 
+  /**
+   * Garante a interoperabilidade segura entre o backend SPRING e clientes webs's externos.
+   * <p>
+   *   Mecanismo que padroniza a política de mesma origem, assim declara explicitamente a autorização para consumir
+   *   seus dados.
+   * </p>
+   *
+   * @return Registrador de regras de CORS baseado em padrões de URL.
+   */
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();
@@ -89,11 +137,28 @@ public class SecurityConfiguration {
     return source;
   }
 
+  /**
+   * Interface central do Spring Security responsável por validar credenciais de usuário.
+   * <p>
+   *   Se as credenciais estiverem corretas, retorna um objeto Authentication preenchido
+   *   com os dados do usuário (Principal) e suas permissões (GrantedAuthorities).
+   *   Caso contrário, lança BadCredentialsException.
+   * </p>
+   *
+   * @param authenticationConfiguration Objeto Authentication preenchido com os dados do usuário.
+   * @return Authentication do SPRING SECURITY
+   * @throws Exception Assegura que retorne um JSON padronizado.
+   */
   @Bean
   public AuthenticationManager authenticationManager ( AuthenticationConfiguration authenticationConfiguration) throws Exception {
     return authenticationConfiguration.getAuthenticationManager();
   }
 
+  /**
+   * Gera o hash criptográfico.
+   *
+   * @return Hash da senha
+   */
   @Bean
   public PasswordEncoder passwordEncoder(){
     return new BCryptPasswordEncoder();

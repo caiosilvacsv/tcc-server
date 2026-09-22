@@ -3,12 +3,18 @@ package br.edu.ifnmg.pagtesouro.infra.exception;
 import br.edu.ifnmg.pagtesouro.exceptions.ConflictException;
 import br.edu.ifnmg.pagtesouro.exceptions.FindException;
 import org.jspecify.annotations.NonNull;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Interceptador Global de Exceções REST (Controller Advice) da aplicação.
@@ -21,27 +27,84 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  *
  * @author Caio da Silva Viana
  */
-@ControllerAdvice
+@RestControllerAdvice
 public class RestExceptionHandler extends ResponseEntityExceptionHandler {
 
   /**
+   * Trata erros de recursos não encontradas.
+   * <p>
+   * **Cenário no TCC:**
+   * Captura tentativas de acessar rotas inexistente para aquela rota.
+   * Retorna status 404 NOT FOUND.
+   * </p>
+   *
+   * @param ex A exceção de violação de segurança lançada.
+   * @param headers O header enviado pelo usyário.
+   * @param status Status da requisição.
+   * @param request A requisição enviada pelo usuário.
+   * @return Payload estruturado informando a rota não encontrada.
+   */
+  @Override
+  protected ResponseEntity<Object> handleNoResourceFoundException(
+      NoResourceFoundException ex,
+      HttpHeaders headers,
+      HttpStatusCode status,
+      WebRequest request
+  ) {
+    RestErrorMessage errorMessage = new RestErrorMessage(
+        HttpStatus.NOT_FOUND,
+        "A rota solicitada '" + ex.getResourcePath() + "' não foi encontrada nesta API."
+    );
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(errorMessage);
+  }
+
+  /**
+   * Trata incompatibilidade de cabeçalhos Accept / Content-Type da requisição.
+   * Evita falhas internas no serializador quando um endpoint específico (como SSE) lança exceção.
+   */
+  @Override
+  protected ResponseEntity<Object> handleHttpMediaTypeNotAcceptable(
+      HttpMediaTypeNotAcceptableException ex,
+      HttpHeaders headers,
+      HttpStatusCode status,
+      WebRequest request
+  ) {
+    RestErrorMessage errorMessage = new RestErrorMessage(
+        HttpStatus.NOT_ACCEPTABLE,
+        "O formato de mídia requisitado não é suportado para esta resposta."
+    );
+    return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(errorMessage);
+  }
+
+  /**
    * Trata falhas de autenticação e credenciais inválidas.
-   * Retorna status 401 Unauthorized.
+   * Return Status 401 Unauthorized.
+   * @return Payload com mensagem adequada.
    */
   @ExceptionHandler(AuthenticationException.class)
-  private @NonNull ResponseEntity<RestErrorMessage> authenticationException() {
+  public @NonNull ResponseEntity<RestErrorMessage> authenticationException() {
     RestErrorMessage restErrorMessage = new RestErrorMessage(HttpStatus.UNAUTHORIZED, "E-mail ou senha informados são inválidos!");
-    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(restErrorMessage);
+    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(restErrorMessage);
   }
 
   /**
    * Trata violações lógicas de unicidade e conflitos de dados.
    * Retorna status 409 Conflict.
+   * @param e Exceção criada.
+   * @return Payload estruturado com mensagem de erro.
    */
   @ExceptionHandler(ConflictException.class)
-  private @NonNull ResponseEntity<RestErrorMessage> conflictException(ConflictException e) {
+  public @NonNull ResponseEntity<RestErrorMessage> conflictException(ConflictException e) {
     RestErrorMessage restErrorMessage = new RestErrorMessage(HttpStatus.CONFLICT, e.getMessage());
-    return ResponseEntity.status(HttpStatus.CONFLICT).body(restErrorMessage);
+    return ResponseEntity.status(HttpStatus.CONFLICT)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(restErrorMessage);
   }
 
   /**
@@ -49,9 +112,11 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
    * Retorna status 400 Bad Request.
    */
   @ExceptionHandler(FindException.class)
-  private @NonNull ResponseEntity<RestErrorMessage> findException(FindException e) {
+  public @NonNull ResponseEntity<RestErrorMessage> findException(FindException e) {
     RestErrorMessage restErrorMessage = new RestErrorMessage(HttpStatus.BAD_REQUEST, e.getMessage());
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(restErrorMessage);
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(restErrorMessage);
   }
 
   /**
@@ -62,9 +127,11 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
    * @return Payload de erro estruturado.
    */
   @ExceptionHandler(IllegalArgumentException.class)
-  private @NonNull ResponseEntity<RestErrorMessage> handleIllegalArgument(IllegalArgumentException e) {
+  public @NonNull ResponseEntity<RestErrorMessage> handleIllegalArgument(IllegalArgumentException e) {
     RestErrorMessage restErrorMessage = new RestErrorMessage(HttpStatus.BAD_REQUEST, e.getMessage());
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(restErrorMessage);
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(restErrorMessage);
   }
 
   /**
@@ -80,9 +147,11 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
    * @return Payload estruturado com a mensagem lógica de barreira de negócios.
    */
   @ExceptionHandler(IllegalStateException.class)
-  private @NonNull ResponseEntity<RestErrorMessage> handleIllegalState(IllegalStateException e) {
+  public @NonNull ResponseEntity<RestErrorMessage> handleIllegalState(IllegalStateException e) {
     RestErrorMessage restErrorMessage = new RestErrorMessage(HttpStatus.UNPROCESSABLE_CONTENT, e.getMessage());
-    return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(restErrorMessage);
+    return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(restErrorMessage);
   }
 
   /**
@@ -98,10 +167,11 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
    * @return Payload estruturado informando o bloqueio de segurança.
    */
   @ExceptionHandler(SecurityException.class)
-  private @NonNull ResponseEntity<RestErrorMessage> handleSecurityException(SecurityException e) {
-    e.printStackTrace();
+  public @NonNull ResponseEntity<RestErrorMessage> handleSecurityException(SecurityException e) {
     RestErrorMessage restErrorMessage = new RestErrorMessage(HttpStatus.FORBIDDEN, e.getMessage());
-    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(restErrorMessage);
+    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(restErrorMessage);
   }
 
   /**
@@ -109,8 +179,7 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
    * Retorna status 500 Internal Server Error.
    */
   @ExceptionHandler(RuntimeException.class)
-  private @NonNull ResponseEntity<RestErrorMessage> runtimeException(RuntimeException e) {
-    e.printStackTrace();
+  public @NonNull ResponseEntity<RestErrorMessage> runtimeException(RuntimeException e) {
     String message = e.getMessage();
     if (e instanceof org.springframework.web.reactive.function.client.WebClientResponseException) {
         org.springframework.web.reactive.function.client.WebClientResponseException wcre =
@@ -118,7 +187,9 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
         message += " - Response Body: " + wcre.getResponseBodyAsString();
     }
     RestErrorMessage restErrorMessage = new RestErrorMessage(HttpStatus.INTERNAL_SERVER_ERROR, message);
-    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(restErrorMessage);
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(restErrorMessage);
   }
 
   /**
@@ -126,9 +197,10 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
    * Retorna status 500 Internal Server Error.
    */
   @ExceptionHandler(Exception.class)
-  private @NonNull ResponseEntity<RestErrorMessage> exception(Exception e) {
-    e.printStackTrace();
+  public @NonNull ResponseEntity<RestErrorMessage> exception(Exception e) {
     RestErrorMessage restErrorMessage = new RestErrorMessage(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
-    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(restErrorMessage);
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(restErrorMessage);
   }
 }

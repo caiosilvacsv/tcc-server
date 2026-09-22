@@ -1,0 +1,22 @@
+info:
+  name: Cancelar Pedido (Aluno)
+  type: http
+  seq: 11
+
+http:
+  method: PATCH
+  url: "{{host}}orders/:orderId/cancel"
+  params:
+    - name: orderId
+      value: 21fd0d44-ade4-4ad2-b244-4674a9ff61e3
+      type: path
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

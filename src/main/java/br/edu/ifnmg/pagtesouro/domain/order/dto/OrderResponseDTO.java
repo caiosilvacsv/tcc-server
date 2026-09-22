@@ -4,6 +4,8 @@ import br.edu.ifnmg.pagtesouro.domain.order.Order;
 import br.edu.ifnmg.pagtesouro.domain.order.OrderStatus;
 import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItem;
 
+import br.edu.ifnmg.pagtesouro.domain.order.BuyerType;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -14,9 +16,9 @@ import java.util.stream.Collectors;
  * Objeto de Transferência de Dados (DTO) contendo a resposta detalhada e estruturada
  * de um pedido criado ou consultado no ecossistema do IFNMG.
  * <p>
- * **Conceito no TCC:**
- * Modela a projeção unificada do cabeçalho da transação do estudante, servindo como a resposta REST principal
- * que expõe a agregação financeira e de estados dos itens do carrinho.
+ * <b>Conceito no TCC:</b>
+ * Modela a projeção unificada do cabeçalho da transação do estudante ou visitante,
+ * servindo como a resposta REST principal que expõe a agregação financeira e de estados dos itens.
  * </p>
  *
  * @param id Identificador único global (UUID) do pedido no banco de dados local
@@ -24,6 +26,9 @@ import java.util.stream.Collectors;
  * @param status Estado consolidado atual do ciclo de vida do pedido (ex: CREATED, PENDING_PAYMENT, COMPLETED)
  * @param createdAt Carimbo de data/hora (Instant) da criação original do pedido
  * @param items Lista detalhada contendo a projeção de cada item individual de cobrança pertencente a este pedido
+ * @param buyerName Nome completo do comprador (aluno ou convidado)
+ * @param buyerCpf CPF do comprador
+ * @param buyerType Enquadramento do comprador ({@link BuyerType#STUDENT} ou {@link BuyerType#GUEST})
  *
  * @author Caio da Silva Viana
  */
@@ -32,8 +37,24 @@ public record OrderResponseDTO(
     BigDecimal totalAmount,
     OrderStatus status,
     Instant createdAt,
-    List<OrderItemResponseDTO> items
+    List<OrderItemResponseDTO> items,
+    String buyerName,
+    String buyerCpf,
+    BuyerType buyerType
 ) {
+    /**
+     * Construtor de compatibilidade para chamadas com 5 parâmetros.
+     */
+    public OrderResponseDTO(
+        UUID id,
+        BigDecimal totalAmount,
+        OrderStatus status,
+        Instant createdAt,
+        List<OrderItemResponseDTO> items
+    ) {
+        this(id, totalAmount, status, createdAt, items, null, null, null);
+    }
+
     /**
      * Construtor de conversão direta que permite instanciar o DTO de resposta a partir de uma entidade {@link Order}.
      *
@@ -45,9 +66,12 @@ public record OrderResponseDTO(
             order.getTotalAmount(),
             order.getStatus(),
             order.getCreateAt(),
-            order.getOrderItems().stream()
+            order.getOrderItems() != null ? order.getOrderItems().stream()
                 .map(OrderItemResponseDTO::new)
-                .collect(Collectors.toList())
+                .collect(Collectors.toList()) : List.of(),
+            order.getBuyerName(),
+            order.getBuyerCpf(),
+            order.getBuyerType()
         );
     }
 
@@ -59,10 +83,12 @@ public record OrderResponseDTO(
      *
      * @param id Identificador único global (UUID) do item de pedido no banco de dados
      * @param productId Identificador único do produto/serviço acadêmico correspondente
-     * @param productTitle Título legível do serviço ou taxa (ex: "Tíquete de Refeição RU")
+     * @param productTitle Título legível do serviço ou taxa (ex: "Tíquete de Refeição")
      * @param quantity Quantidade de unidades adquiridas deste item de cobrança
      * @param totalAmount Valor total acumulado para este item (preço unitário multiplicado pela quantidade)
-     * @param status Status individualizado de quitação deste item de cobrança (ex: PENDING, PAID)
+     * @param status Status individualizado de quitação deste item de cobrança (ex: PENDING, PAID, EXCHANGED)
+     * @param paidAt Data e hora de liquidação bancária do item
+     * @param exchangedAt Data e hora de baixa/troca física do tíquete no balcão
      */
     public record OrderItemResponseDTO(
         UUID id,
@@ -70,8 +96,24 @@ public record OrderResponseDTO(
         String productTitle,
         Integer quantity,
         BigDecimal totalAmount,
-        String status
+        String status,
+        Instant paidAt,
+        Instant exchangedAt
     ) {
+        /**
+         * Construtor de compatibilidade para 6 parâmetros.
+         */
+        public OrderItemResponseDTO(
+            UUID id,
+            UUID productId,
+            String productTitle,
+            Integer quantity,
+            BigDecimal totalAmount,
+            String status
+        ) {
+            this(id, productId, productTitle, quantity, totalAmount, status, null, null);
+        }
+
         /**
          * Construtor de conversão direta que permite instanciar o DTO do item de resposta a partir de uma entidade {@link OrderItem}.
          *
@@ -80,11 +122,13 @@ public record OrderResponseDTO(
         public OrderItemResponseDTO(OrderItem item) {
             this(
                 item.getId(),
-                item.getProduct().getId(),
-                item.getProduct().getTitle(),
+                item.getProduct() != null ? item.getProduct().getId() : null,
+                item.getProduct() != null ? item.getProduct().getTitle() : null,
                 item.getQuantity(),
                 item.getTotalAmount(),
-                item.getStatus().name()
+                item.getStatus() != null ? item.getStatus().name() : null,
+                item.getPaidAt(),
+                item.getExchangedAt()
             );
         }
     }

@@ -1,11 +1,11 @@
 info:
-  name: Cadastrar Novo Produto (ADMIN)
+  name: Cadastrar Novo Produto (ADMIN) error
   type: http
-  seq: 9
+  seq: 3
 
 http:
   method: POST
-  url: "{{localhost}}product"
+  url: "{{host}}product"
   body:
     type: json
     data: |-
@@ -25,3 +25,4 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true

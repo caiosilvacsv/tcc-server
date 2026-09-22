@@ -1,0 +1,30 @@
+info:
+  name: Cadastrar Novo Produto (ADMIN)
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{host}}product"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Ticket interno",
+        "description": "Ticket exclusivo para pessoas internas.",
+        "image": "ticketinterno.png",
+        "price": 0.10,
+        "active": true,
+        "codeService": "0245",
+        "category": "TICKET"
+      }
+  auth:
+    type: bearer
+    token: "{{tokenADMIN}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

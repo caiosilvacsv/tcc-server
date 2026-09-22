@@ -3,12 +3,14 @@ package br.edu.ifnmg.pagtesouro.services.payment;
 import br.edu.ifnmg.pagtesouro.domain.payment.Payment;
 import br.edu.ifnmg.pagtesouro.domain.payment.PaymentStatus;
 import br.edu.ifnmg.pagtesouro.repository.PaymentRepository;
+import br.edu.ifnmg.pagtesouro.services.order.OrderService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,20 +21,30 @@ import java.util.List;
  * **Conceito no TCC (Portal de Débitos):**
  * Caso o webhook da STN sofra alguma instabilidade de rede ou queda operacional, este
  * daemon faz a conciliação ativa ("pull") buscando guias pendentes locais e verificando
- * suas situações em Salinas/PagTesouro.
+ * suas situações em PagTesouro.
+ * Também gerencia o ciclo de expiração automática de pedidos abandonados por inatividade.
  * </p>
  *
  * @author Caio da Silva Viana
  */
+@Slf4j
 @Service
 public class PaymentDaemonService {
 
   private final PaymentRepository paymentRepository;
   private final PaymentSyncService paymentSyncService;
+  private final OrderService orderService;
 
-  public PaymentDaemonService(PaymentRepository paymentRepository, PaymentSyncService paymentSyncService) {
+  @Value("${api.order.abandoned-expiration-days:10}")
+  private int abandonedExpirationDays;
+
+  public PaymentDaemonService(
+      PaymentRepository paymentRepository,
+      PaymentSyncService paymentSyncService,
+      OrderService orderService) {
     this.paymentRepository = paymentRepository;
     this.paymentSyncService = paymentSyncService;
+    this.orderService = orderService;
   }
 
   /**
@@ -42,10 +54,22 @@ public class PaymentDaemonService {
    */
   @Scheduled(cron = "${api.pagtesouro.daemon.cron:0 0 * * * *}")
   public void runPaymentFailsafeSync() {
-    System.out.println("[DAEMON] Iniciando rotina automática de conciliação ativa Failsafe...");
+    log.info("[DAEMON] Iniciando rotina automática de conciliação ativa Failsafe...");
 
-    Instant dataMinima = Instant.now().minus(48, ChronoUnit.HOURS);
-    Instant dataMaxima = Instant.now().minus(10, ChronoUnit.MINUTES);
+    // 1. Varredura e expiração automática de pedidos abandonados
+    try {
+      int cancelados = orderService.cancelAbandonedOrders(abandonedExpirationDays);
+      if (cancelados > 0) {
+        log.info("[DAEMON] Sucesso: {} pedidos abandonados foram cancelados automaticamente por inatividade (> {} dias).",
+            cancelados, abandonedExpirationDays);
+      }
+    } catch (Exception ex) {
+      log.error("[DAEMON] Falha ao processar expiração de pedidos abandonados: {}", ex.getMessage());
+    }
+
+    // 2. Conciliação ativa de pagamentos pendentes com a STN
+    Instant dataMinima = Instant.now().minusSeconds(48 * 3600L);
+    Instant dataMaxima = Instant.now().minusSeconds(10 * 60L);
 
     List<PaymentStatus> statusPendentes = List.of(
         PaymentStatus.CREATED,
@@ -66,11 +90,11 @@ public class PaymentDaemonService {
     }
 
     if (pagamentosPendentes.isEmpty()) {
-      System.out.println("[DAEMON] Nenhum pagamento pendente elegível localizado para conciliação.");
+      log.debug("[DAEMON] Nenhum pagamento pendente elegível localizado para conciliação.");
       return;
     }
 
-    System.out.printf("[DAEMON] Localizados %d pagamentos pendentes elegíveis. Iniciando sincronização ativa...%n",
+    log.info("[DAEMON] Localizados {} pagamentos pendentes elegíveis. Iniciando sincronização ativa...",
         pagamentosPendentes.size());
 
     //Executa no máximo duas buscas simultâneas por vez no PagTesouro, evitando sobrecarga.
@@ -80,10 +104,10 @@ public class PaymentDaemonService {
                 payment.getPagtesouroPaymentId()
             )
             .doOnSuccess(success ->
-                System.out.printf("[DAEMON] Sincronizado: %s. Novo Status: %s%n",
+                log.info("[DAEMON] Sincronizado: {}. Novo Status: {}",
                     payment.getPagtesouroPaymentId(), success.getStatus()))
                 .doOnError(error ->
-                    System.err.printf("[DAEMON] Erro ao sincronizar %s: %s%n",
+                    log.error("[DAEMON] Erro ao sincronizar {}: {}",
                         payment.getPagtesouroPaymentId(), error.getMessage())),
         2)
         .subscribe();

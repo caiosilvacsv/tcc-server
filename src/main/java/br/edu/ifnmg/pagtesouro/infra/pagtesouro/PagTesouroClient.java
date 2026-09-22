@@ -31,8 +31,15 @@ public class PagTesouroClient {
    */
   public PagTesouroClient(PagTesouroProperties properties, WebClient.Builder webClientBuilder) {
     this.properties = properties;
+    String base = this.properties.base_url() != null ? this.properties.base_url().trim() : "";
+    if (base.endsWith("/")) {
+      base = base.substring(0, base.length() - 1);
+    }
+    if (base.endsWith("/api/gru")) {
+      base = base.substring(0, base.length() - "/api/gru".length());
+    }
     this.webClient = webClientBuilder
-        .baseUrl(this.properties.base_url()+"/api/gru/")
+        .baseUrl(base + "/api/gru/")
         .build();
   }
 
@@ -46,7 +53,7 @@ public class PagTesouroClient {
     return webClient
         .post()
         .uri("solicitacao-pagamento")
-        .headers(headers -> headers.setBearerAuth(properties.token_salinas()))
+        .headers(headers -> headers.setBearerAuth(properties.token()))
         .bodyValue(request)
         .retrieve()
         .bodyToMono(PagTesouroResponseDTO.class);
@@ -63,7 +70,7 @@ public class PagTesouroClient {
     return webClient
         .get()
         .uri("pagamentos/{id}", idPayment)
-        .headers(headers -> headers.setBearerAuth(properties.token_salinas()))
+        .headers(headers -> headers.setBearerAuth(properties.token()))
         .retrieve()
         .bodyToMono(PagTesouroQueryResponseDTO.class);
   }

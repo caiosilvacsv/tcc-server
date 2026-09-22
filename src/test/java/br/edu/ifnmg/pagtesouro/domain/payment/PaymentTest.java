@@ -81,6 +81,6 @@ class PaymentTest {
         assertEquals("Caio Silva Viana", payment.getContributorName());
         assertEquals(12, payment.getPixExpirationHours());
         assertEquals("https://valpagtesouro.gov.br/simulador/iframe", payment.getNextUrl());
-        assertSame(items, payment.getOrderItems());
+        assertEquals(items, payment.getOrderItems());
     }
 }

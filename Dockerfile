@@ -1,5 +1,5 @@
 # ==============================================================================
-# Dockerfile Multiestágio para o backend do TCC (tcc-server)
+# Dockerfile Multiestágio para o backend do TCC
 # Garante a compilação e execução seguras usando Java 25 no Render/nuvem
 # ==============================================================================
 

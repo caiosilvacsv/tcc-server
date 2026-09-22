@@ -7,7 +7,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.retry.annotation.EnableRetry;
 
 /**
- * Classe principal de inicialização do servidor backend do TCC (tcc-server).
+ * Classe principal de inicialização do servidor backend do TCC
  * <p>
  * **Conceito no TCC (Engenharia de Software e Robustez):**
  * Inicializa a aplicação Spring Boot habilitando três pilares essenciais de resiliência e concorrência:

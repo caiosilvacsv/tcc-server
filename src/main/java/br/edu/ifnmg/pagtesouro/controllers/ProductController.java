@@ -1,15 +1,17 @@
 package br.edu.ifnmg.pagtesouro.controllers;
 
+import br.edu.ifnmg.pagtesouro.domain.product.dto.ProductCategoryResponseDTO;
 import br.edu.ifnmg.pagtesouro.domain.product.dto.ProductRequestDTO;
 import br.edu.ifnmg.pagtesouro.domain.product.dto.ProductResponseDTO;
 import br.edu.ifnmg.pagtesouro.services.product.ProductService;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
@@ -36,25 +38,32 @@ public class ProductController {
      * </p>
      *
      * @param activeOnly Define se retorna apenas produtos ativos (padrão true).
-     * @return Lista com os DTOs dos produtos correspondentes.
+     * @return Lista com os DTOs dos produtos correspondentes com statys 200 ok.
      */
     @GetMapping
     public ResponseEntity<List<ProductResponseDTO>> getAll(
             @RequestParam(name = "activeOnly", defaultValue = "true") boolean activeOnly) {
-        
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        
-        boolean isAdmin = auth != null && auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
-        List<ProductResponseDTO> products;
-        if (isAdmin && !activeOnly) {
-            products = service.findAll();
-        } else {
-            products = service.findAllActive();
+        if(!activeOnly){
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            boolean isAdmin = auth != null && auth.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+            if (isAdmin)
+                return ResponseEntity.ok(service.findAll());
         }
+        return ResponseEntity.ok(service.findAllActive());
+    }
 
-        return ResponseEntity.ok(products);
+    /**
+     * Rota pública para consultar as categorias distintas presentes nos produtos cadastrados.
+     *
+     * @param activeOnly Define se filtra apenas categorias com produtos ativos (padrão true).
+     * @return Lista de categorias disponíveis com status 200 OK.
+     */
+    @GetMapping("/categories")
+    public ResponseEntity<List<ProductCategoryResponseDTO>> getCategories(
+            @RequestParam(name = "activeOnly", defaultValue = "true") boolean activeOnly) {
+        return ResponseEntity.ok(service.findCategories(activeOnly));
     }
 
     /**
@@ -63,7 +72,7 @@ public class ProductController {
      * @param id O ID único do produto.
      * @return Os detalhes do produto com status 200 OK.
      */
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}}")
     public ResponseEntity<ProductResponseDTO> getById(@PathVariable UUID id) {
         ProductResponseDTO product = service.findById(id);
         return ResponseEntity.ok(product);
@@ -73,12 +82,17 @@ public class ProductController {
      * Rota privada (apenas ADMIN) para cadastrar um novo produto.
      *
      * @param request O DTO contendo os dados do novo produto.
-     * @return O produto criado com status 201 Created.
+     * @return O produto criado e respondido com um produto e status 201 Created.
      */
     @PostMapping
     public ResponseEntity<ProductResponseDTO> create(@RequestBody @Valid ProductRequestDTO request) {
         ProductResponseDTO product = service.create(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(product);
+        URI location = ServletUriComponentsBuilder
+            .fromCurrentRequest()
+            .path("/{id}")
+            .buildAndExpand(product.id())
+            .toUri();
+        return ResponseEntity.created(location).body(product);
     }
 
     /**

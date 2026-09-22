@@ -4,6 +4,7 @@ import br.edu.ifnmg.pagtesouro.domain.payment.Payment;
 import br.edu.ifnmg.pagtesouro.domain.payment.PaymentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -28,10 +29,13 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     /**
      * Localiza um pagamento no banco local pelo ID de solicitação externo retornado pelo PagTesouro.
      * Utilizado para localizar a cobrança no momento do processamento assíncrono de notificações de webhook.
+     * Utiliza {@link EntityGraph} para carregar ansiosamente a coleção associada de {@link br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItem},
+     * prevenindo {@code LazyInitializationException} em threads reativas e assíncronas do webhook.
      *
      * @param pagtesouroPaymentId O ID do pagamento retornado na solicitação do PagTesouro
-     * @return Um {@link Optional} contendo o pagamento se localizado; vazio caso contrário
+     * @return Um {@link Optional} contendo o pagamento com itens carregados se localizado; vazio caso contrário
      */
+    @EntityGraph(attributePaths = {"orderItems"})
     Optional<Payment> findByPagtesouroPaymentId(String pagtesouroPaymentId);
 
     /**

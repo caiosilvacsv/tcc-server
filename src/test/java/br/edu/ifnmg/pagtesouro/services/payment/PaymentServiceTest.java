@@ -5,8 +5,10 @@ import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItem;
 import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItemStatus;
 import br.edu.ifnmg.pagtesouro.domain.payment.Payment;
 import br.edu.ifnmg.pagtesouro.domain.payment.PaymentStatus;
-import br.edu.ifnmg.pagtesouro.domain.payment.dto.CheckoutRequestDTO;
+import br.edu.ifnmg.pagtesouro.domain.payment.dto.DirectCheckoutRequestDTO;
+import br.edu.ifnmg.pagtesouro.domain.payment.dto.OrderCheckoutRequestDTO;
 import br.edu.ifnmg.pagtesouro.domain.payment.dto.CheckoutResponseDTO;
+import br.edu.ifnmg.pagtesouro.domain.common.PageResponseDTO;
 import br.edu.ifnmg.pagtesouro.domain.payment.dto.PaymentHistoryResponseDTO;
 import br.edu.ifnmg.pagtesouro.domain.product.Product;
 import org.springframework.data.domain.Page;
@@ -34,6 +36,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -87,6 +90,7 @@ class PaymentServiceTest {
         product.setPrice(new BigDecimal("2.50"));
         product.setCodeService("23");
         product.setCategory(ProductCategory.TICKET);
+        product.setActive(true);
 
         order = new Order();
         order.setId(UUID.randomUUID());
@@ -131,8 +135,7 @@ class PaymentServiceTest {
     @Test
     @DisplayName("Deve iniciar checkout direto com sucesso gerando a URL de redirecionamento")
     void checkoutDirectSuccess() {
-        CheckoutRequestDTO request = new CheckoutRequestDTO(
-            null,
+        DirectCheckoutRequestDTO request = new DirectCheckoutRequestDTO(
             product.getId(),
             1,
             "12345678901",
@@ -141,13 +144,13 @@ class PaymentServiceTest {
         );
 
         when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
         when(paymentRepository.saveAndFlush(any(Payment.class))).thenReturn(payment);
         when(pagTesouroClient.getProperties()).thenReturn(properties);
         when(pagTesouroClient.createPayment(any())).thenReturn(Mono.just(ptResponse));
 
-        Mono<CheckoutResponseDTO> result = paymentService.checkoutDirect(request);
-        CheckoutResponseDTO response = result.block();
+        CheckoutResponseDTO response = paymentService.checkoutDirect(request);
 
         assertNotNull(response);
         assertEquals("pt-payment-id-123", response.pagtesouroPaymentId());
@@ -155,6 +158,7 @@ class PaymentServiceTest {
         assertEquals(new BigDecimal("2.50"), response.amount());
 
         verify(productRepository, times(1)).findById(product.getId());
+        verify(orderRepository, times(1)).save(any(Order.class));
         verify(paymentRepository, times(1)).saveAndFlush(any(Payment.class));
         verify(paymentRepository, times(1)).save(any(Payment.class));
         verify(pagTesouroClient, times(1)).createPayment(any());
@@ -163,10 +167,7 @@ class PaymentServiceTest {
     @Test
     @DisplayName("Deve iniciar checkout de pedido com sucesso gerando a URL de redirecionamento")
     void checkoutOrderSuccess() {
-        CheckoutRequestDTO request = new CheckoutRequestDTO(
-            order.getId(),
-            null,
-            null,
+        OrderCheckoutRequestDTO request = new OrderCheckoutRequestDTO(
             "12345678901",
             "Caio Viana",
             false
@@ -178,17 +179,68 @@ class PaymentServiceTest {
         when(pagTesouroClient.getProperties()).thenReturn(properties);
         when(pagTesouroClient.createPayment(any())).thenReturn(Mono.just(ptResponse));
 
-        Mono<CheckoutResponseDTO> result = paymentService.checkoutOrder(order.getId(), request, user);
-        CheckoutResponseDTO response = result.block();
+        List<CheckoutResponseDTO> responses = paymentService.checkoutOrder(order.getId(), request, user);
 
-        assertNotNull(response);
+        assertNotNull(responses);
+        assertEquals(1, responses.size());
+        CheckoutResponseDTO response = responses.get(0);
         assertEquals("pt-payment-id-123", response.pagtesouroPaymentId());
         assertEquals("https://valpagtesouro.tesouro.gov.br/iframe-url", response.nextUrl());
+        assertEquals("23", response.codeService());
 
         verify(orderRepository, times(1)).findById(order.getId());
         verify(paymentRepository, times(1)).saveAndFlush(any(Payment.class));
         verify(paymentRepository, times(1)).save(any(Payment.class));
         verify(pagTesouroClient, times(1)).createPayment(any());
+    }
+
+    @Test
+    @DisplayName("Deve agrupar itens por código SISGRU e gerar múltiplos pagamentos quando o pedido tiver múltiplos serviços")
+    void checkoutOrderWithMultipleServiceCodesSuccess() {
+        // Criando segundo produto com outro código de serviço
+        Product product2 = new Product();
+        product2.setId(UUID.randomUUID());
+        product2.setTitle("Taxa de Biblioteca");
+        product2.setPrice(new BigDecimal("10.00"));
+        product2.setCodeService("88");
+        product2.setCategory(ProductCategory.FINE);
+        product2.setActive(true);
+
+        OrderItem item2 = new OrderItem();
+        item2.setId(UUID.randomUUID());
+        item2.setOrder(order);
+        item2.setProduct(product2);
+        item2.setQuantity(1);
+        item2.setTotalAmount(new BigDecimal("10.00"));
+        item2.setStatus(OrderItemStatus.PENDING);
+        order.getOrderItems().add(item2);
+
+        OrderCheckoutRequestDTO request = new OrderCheckoutRequestDTO(false);
+
+        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+        when(paymentRepository.saveAndFlush(any(Payment.class))).thenAnswer(invocation -> {
+            Payment p = invocation.getArgument(0);
+            p.setId(UUID.randomUUID());
+            p.setReferenceNumber(100200L);
+            return p;
+        });
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(pagTesouroClient.getProperties()).thenReturn(properties);
+        when(pagTesouroClient.createPayment(any())).thenReturn(Mono.just(ptResponse));
+
+        List<CheckoutResponseDTO> responses = paymentService.checkoutOrder(order.getId(), request, user);
+
+        assertNotNull(responses);
+        assertEquals(2, responses.size());
+
+        List<String> serviceCodes = responses.stream().map(CheckoutResponseDTO::codeService).toList();
+        assertTrue(serviceCodes.contains("23"));
+        assertTrue(serviceCodes.contains("88"));
+
+        verify(orderRepository, times(1)).findById(order.getId());
+        verify(paymentRepository, times(2)).saveAndFlush(any(Payment.class));
+        verify(paymentRepository, times(2)).save(any(Payment.class));
+        verify(pagTesouroClient, times(2)).createPayment(any());
     }
 
     @Test
@@ -199,13 +251,16 @@ class PaymentServiceTest {
 
         when(paymentRepository.findByContributorCpfCnpj(user.getCpf(), pageable)).thenReturn(page);
 
-        Mono<Page<PaymentHistoryResponseDTO>> result = paymentService.getMyPayments(user, pageable);
-        Page<PaymentHistoryResponseDTO> response = result.block();
+        PageResponseDTO<PaymentHistoryResponseDTO> response = paymentService.getMyPayments(user, pageable);
 
         assertNotNull(response);
-        assertEquals(1, response.getTotalElements());
-        assertEquals(payment.getId(), response.getContent().get(0).id());
-        assertEquals(payment.getAmount(), response.getContent().get(0).amount());
+        assertEquals(1, response.totalElements());
+        assertEquals(0, response.page());
+        assertEquals(1, response.totalPages());
+        assertTrue(response.first());
+        assertTrue(response.last());
+        assertEquals(payment.getId(), response.content().get(0).id());
+        assertEquals(payment.getAmount(), response.content().get(0).amount());
 
         verify(paymentRepository, times(1)).findByContributorCpfCnpj(user.getCpf(), pageable);
     }

@@ -4,6 +4,7 @@ import br.edu.ifnmg.pagtesouro.domain.product.Product;
 import br.edu.ifnmg.pagtesouro.domain.product.ProductCategory;
 import br.edu.ifnmg.pagtesouro.domain.product.dto.ProductRequestDTO;
 import br.edu.ifnmg.pagtesouro.domain.product.dto.ProductResponseDTO;
+import br.edu.ifnmg.pagtesouro.exceptions.ConflictException;
 import br.edu.ifnmg.pagtesouro.exceptions.FindException;
 import br.edu.ifnmg.pagtesouro.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,7 +43,7 @@ class ProductServiceTest {
         productId = UUID.randomUUID();
         product = new Product();
         product.setId(productId);
-        product.setTitle("Almoço - RU");
+        product.setTitle("Almoço");
         product.setDescription("Tíquete de alimentação para almoço");
         product.setImage("almoco.png");
         product.setPrice(new BigDecimal("3.50"));
@@ -51,7 +52,7 @@ class ProductServiceTest {
         product.setCategory(ProductCategory.TICKET);
 
         requestDTO = new ProductRequestDTO(
-            "Almoço - RU",
+            "Almoço",
             "Tíquete de alimentação para almoço",
             "almoco.png",
             new BigDecimal("3.50"),
@@ -70,10 +71,21 @@ class ProductServiceTest {
 
         assertNotNull(response);
         assertEquals(productId, response.id());
-        assertEquals("Almoço - RU", response.title());
+        assertEquals("Almoço", response.title());
         assertEquals(new BigDecimal("3.50"), response.price());
         assertTrue(response.active());
         verify(repository, times(1)).save(any(Product.class));
+    }
+
+    @Test
+    @DisplayName("Deve lançar ConflictException ao tentar criar um produto com título já existente")
+    void createProductDuplicateThrowsConflictException() {
+        when(repository.existsByTitleIgnoreCase("Almoço")).thenReturn(true);
+
+        ConflictException ex = assertThrows(ConflictException.class, () -> service.create(requestDTO));
+
+        assertTrue(ex.getMessage().contains("Já existe um produto cadastrado com o título"));
+        verify(repository, never()).save(any(Product.class));
     }
 
     @Test
@@ -85,9 +97,22 @@ class ProductServiceTest {
         ProductResponseDTO response = service.update(productId, requestDTO);
 
         assertNotNull(response);
-        assertEquals("Almoço - RU", response.title());
+        assertEquals("Almoço", response.title());
         verify(repository, times(1)).findById(productId);
         verify(repository, times(1)).save(product);
+    }
+
+    @Test
+    @DisplayName("Deve lançar ConflictException ao tentar atualizar para um título já em uso por outro produto")
+    void updateProductDuplicateTitleThrowsConflictException() {
+        when(repository.findById(productId)).thenReturn(Optional.of(product));
+        when(repository.existsByTitleIgnoreCaseAndIdNot("Almoço", productId)).thenReturn(true);
+
+        ConflictException ex = assertThrows(ConflictException.class, () -> service.update(productId, requestDTO));
+
+        assertTrue(ex.getMessage().contains("Já existe outro produto cadastrado com o título"));
+        verify(repository, times(1)).findById(productId);
+        verify(repository, never()).save(any(Product.class));
     }
 
     @Test
@@ -115,14 +140,14 @@ class ProductServiceTest {
     @Test
     @DisplayName("Deve buscar produtos pelo título com sucesso, retornando uma lista")
     void findByTitleSuccess() {
-        when(repository.findByTitle("Almoço - RU")).thenReturn(List.of(product));
+        when(repository.findByTitle("Almoço")).thenReturn(List.of(product));
 
-        List<ProductResponseDTO> response = service.findByTitle("Almoço - RU");
+        List<ProductResponseDTO> response = service.findByTitle("Almoço");
 
         assertNotNull(response);
         assertEquals(1, response.size());
-        assertEquals("Almoço - RU", response.get(0).title());
-        verify(repository, times(1)).findByTitle("Almoço - RU");
+        assertEquals("Almoço", response.get(0).title());
+        verify(repository, times(1)).findByTitle("Almoço");
     }
 
     @Test
@@ -134,7 +159,7 @@ class ProductServiceTest {
 
         assertNotNull(response);
         assertEquals(1, response.size());
-        assertEquals("Almoço - RU", response.get(0).title());
+        assertEquals("Almoço", response.get(0).title());
         verify(repository, times(1)).findAll();
     }
 
@@ -162,5 +187,36 @@ class ProductServiceTest {
         assertFalse(product.isActive());
         verify(repository, times(1)).findById(productId);
         verify(repository, times(1)).save(product);
+    }
+
+    @Test
+    @DisplayName("Deve retornar categorias distintas de produtos ativos quando activeOnly for true")
+    void findCategoriesActiveOnlyTrue() {
+        when(repository.findDistinctActiveCategories()).thenReturn(List.of(ProductCategory.TICKET));
+
+        var result = service.findCategories(true);
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals("TICKET", result.get(0).key());
+        assertEquals("ticket", result.get(0).value());
+        assertEquals("Tíquete de Alimentação", result.get(0).displayName());
+        verify(repository, times(1)).findDistinctActiveCategories();
+        verify(repository, never()).findDistinctCategories();
+    }
+
+    @Test
+    @DisplayName("Deve retornar todas as categorias distintas quando activeOnly for false")
+    void findCategoriesActiveOnlyFalse() {
+        when(repository.findDistinctCategories()).thenReturn(List.of(ProductCategory.TICKET, ProductCategory.FINE));
+
+        var result = service.findCategories(false);
+
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        assertEquals("TICKET", result.get(0).key());
+        assertEquals("FINE", result.get(1).key());
+        verify(repository, times(1)).findDistinctCategories();
+        verify(repository, never()).findDistinctActiveCategories();
     }
 }

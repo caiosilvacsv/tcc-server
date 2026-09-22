@@ -3,6 +3,7 @@ package br.edu.ifnmg.pagtesouro.controllers;
 import br.edu.ifnmg.pagtesouro.infra.pagtesouro.PagTesouroProperties;
 import br.edu.ifnmg.pagtesouro.infra.pagtesouro.dto.WebhookRequestDTO;
 import br.edu.ifnmg.pagtesouro.services.payment.PaymentSyncService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +16,7 @@ import reactor.core.scheduler.Schedulers;
  *
  * @author Caio da Silva Viana
  */
+@Slf4j
 @RestController
 @RequestMapping("/payment")
 public class WebhookController {
@@ -45,15 +47,15 @@ public class WebhookController {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
 
     String token = auth.replace("Bearer ", "");
-    if(!token.equals(properties.token_salinas()))
+    if(!token.equals(properties.token()))
       return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
 
     // Dispara a sincronização de forma reativa em background (sem travar a resposta)
     paymentSyncService.syncPaymentStatus(request.idPayment())
         .publishOn(Schedulers.boundedElastic())
         .subscribe(
-            success -> System.out.println("Sincronização de pagamento realizada com sucesso para o ID: " + request.idPayment()),
-            error -> System.err.println("Erro ao processar sincronização de webhook: " + error.getMessage())
+            success -> log.info("Sincronização de pagamento realizada com sucesso para o ID: {}", request.idPayment()),
+            error -> log.error("Erro ao processar sincronização de webhook: {}", error.getMessage())
         );
 
     // Retorna imediatamente o status 200 OK exigido pelo governo para evitar retransmissões redundantes

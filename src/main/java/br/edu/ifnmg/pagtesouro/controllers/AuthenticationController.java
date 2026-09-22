@@ -1,11 +1,15 @@
 package br.edu.ifnmg.pagtesouro.controllers;
 
+import br.edu.ifnmg.pagtesouro.domain.user.User;
+import br.edu.ifnmg.pagtesouro.domain.user.dto.AuthenticationDTO;
 import br.edu.ifnmg.pagtesouro.domain.user.dto.LoginResponseDTO;
 import br.edu.ifnmg.pagtesouro.domain.user.dto.RegisterDTO;
-import br.edu.ifnmg.pagtesouro.domain.user.dto.AuthenticationDTO;
+import br.edu.ifnmg.pagtesouro.domain.user.dto.UserResponseDTO;
 import br.edu.ifnmg.pagtesouro.services.authentication.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -56,4 +60,16 @@ public class AuthenticationController {
   public ResponseEntity<LoginResponseDTO> register (@RequestBody @Valid RegisterDTO data){
     return ResponseEntity.ok(authService.register(data));
   }
+
+  /**
+   * Rota privada para obter os dados cadastrais do usuário atualmente autenticado.
+   *
+   * @param user Usuário autenticado obtido através do contexto de segurança JWT.
+   * @return Um ResponseEntity contendo os dados do perfil em UserResponseDTO e status 200 OK.
+   */
+  @GetMapping("/me")
+  public ResponseEntity<UserResponseDTO> getMe(@AuthenticationPrincipal User user) {
+    return ResponseEntity.ok(new UserResponseDTO(user));
+  }
 }
+

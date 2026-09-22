@@ -99,7 +99,6 @@ public class User implements UserDetails {
      *  Método essencial utilizado para promoção segura de permissões no startup (TCC DevOps).
      *
      * @param role O novo perfil de privilégios
-
      */
     @Setter
     @NotNull

@@ -1,7 +1,9 @@
 package br.edu.ifnmg.pagtesouro.repository;
 
 import br.edu.ifnmg.pagtesouro.domain.product.Product;
+import br.edu.ifnmg.pagtesouro.domain.product.ProductCategory;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -21,12 +23,28 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     
     /**
      * Localiza produtos pelo seu título comercial exato.
-     * Como o título não é único no banco, pode retornar múltiplos registros (ex: históricos ou preços diferentes).
      *
      * @param title O título do produto/serviço.
      * @return Lista contendo os produtos localizados.
      */
     List<Product> findByTitle(String title);
+
+    /**
+     * Verifica se já existe produto cadastrado com o título informado (case-insensitive).
+     *
+     * @param title O título do produto a ser verificado.
+     * @return true se já existir um produto com este título, false caso contrário.
+     */
+    boolean existsByTitleIgnoreCase(String title);
+
+    /**
+     * Verifica se já existe outro produto com o título informado, desconsiderando o próprio produto pelo ID (case-insensitive).
+     *
+     * @param title O título do produto a ser verificado.
+     * @param id ID do produto a ser desconsiderado na busca.
+     * @return true se já existir outro produto com este título, false caso contrário.
+     */
+    boolean existsByTitleIgnoreCaseAndIdNot(String title, UUID id);
 
     /**
      * Retorna a lista de todos os produtos que estão com o status ativo no sistema.
@@ -35,5 +53,21 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
      * @return Lista de produtos ativos.
      */
     List<Product> findAllByActiveTrue();
+
+    /**
+     * Retorna a lista de categorias distintas presentes nos produtos cadastrados.
+     *
+     * @return Lista com as categorias cadastradas na base de dados.
+     */
+    @Query("SELECT DISTINCT p.category FROM products p WHERE p.category IS NOT NULL")
+    List<ProductCategory> findDistinctCategories();
+
+    /**
+     * Retorna a lista de categorias distintas presentes em produtos atualmente ATIVOS no sistema.
+     *
+     * @return Lista com as categorias ativas na vitrine.
+     */
+    @Query("SELECT DISTINCT p.category FROM products p WHERE p.category IS NOT NULL AND p.active = true")
+    List<ProductCategory> findDistinctActiveCategories();
 }
 

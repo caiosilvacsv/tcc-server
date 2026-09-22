@@ -1,0 +1,37 @@
+info:
+  name: Criar order
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{host}}orders"
+  body:
+    type: json
+    data: |-
+      {
+        "itemsList": [
+          {
+            "productId": "5d2c971c-b193-48c3-966d-066fe25c8a9f",
+            "quantity": 3
+          },
+          {
+            "productId": "4d995301-c58e-427e-87e6-bf52b31fd3d8",
+            "quantity": 1
+          },
+          {
+            "productId": "3c6edddd-60b7-4f25-9dd3-b21707969243",
+            "quantity": 2
+          }
+        ]
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

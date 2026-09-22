@@ -1,0 +1,33 @@
+info:
+  name: Login ADMIN
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{host}}auth/login"
+  body:
+    type: json
+    data: |-
+      {
+        "email" : "caio@admin.br",
+        "password" : "153624"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        // Pega o token da resposta e salva na variável de ambiente do Bruno
+        if (res.body && res.body.token) {
+            bru.setVar("tokenADMIN", res.body.token);
+            console.log("Token JWT salvo com sucesso!");
+        }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

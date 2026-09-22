@@ -17,6 +17,7 @@ import java.util.UUID;
  * @param amount Valor financeiro consolidado cobrado nesta tentativa de pagamento
  * @param status Estado operacional inicial da transação cadastrada no banco de dados local (ex: "CREATED")
  * @param nextUrl URL de redirecionamento segura gerada pela STN para conclusão do pagamento na página do PagTesouro
+ * @param codeService Código numérico do serviço SISGRU associado a esta guia de pagamento
  *
  * @author Caio da Silva Viana
  */
@@ -25,5 +26,19 @@ public record CheckoutResponseDTO(
     String pagtesouroPaymentId,
     BigDecimal amount,
     String status,
-    String nextUrl
-) {}
+    String nextUrl,
+    String codeService
+) {
+    /**
+     * Construtor de compatibilidade de 5 parâmetros.
+     */
+    public CheckoutResponseDTO(
+        UUID paymentId,
+        String pagtesouroPaymentId,
+        BigDecimal amount,
+        String status,
+        String nextUrl
+    ) {
+        this(paymentId, pagtesouroPaymentId, amount, status, nextUrl, null);
+    }
+}

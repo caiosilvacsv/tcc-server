@@ -105,4 +105,45 @@ class OrderTest {
 
         assertEquals(OrderStatus.PENDING_PAYMENT, order.getStatus());
     }
+
+    @Test
+    @DisplayName("Deve cancelar com sucesso o pedido e todos os itens pendentes")
+    void cancel_Success() {
+        OrderItem item1 = new OrderItem();
+        item1.setStatus(OrderItemStatus.PENDING);
+        items.add(item1);
+
+        OrderItem item2 = new OrderItem();
+        item2.setStatus(OrderItemStatus.PENDING);
+        items.add(item2);
+
+        order.cancel();
+
+        assertNotNull(order.getCancelledAt());
+        assertEquals(OrderStatus.CANCELLED, order.getStatus());
+        assertEquals(OrderItemStatus.CANCELLED, item1.getStatus());
+        assertEquals(OrderItemStatus.CANCELLED, item2.getStatus());
+    }
+
+    @Test
+    @DisplayName("Deve lançar IllegalStateException ao tentar cancelar pedido já cancelado")
+    void cancel_AlreadyCancelled_ThrowsException() {
+        OrderItem item = new OrderItem();
+        item.setStatus(OrderItemStatus.CANCELLED);
+        items.add(item);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> order.cancel());
+        assertEquals("Este pedido já se encontra cancelado.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Deve lançar IllegalStateException ao tentar cancelar pedido que possui itens pagos")
+    void cancel_AlreadyPaid_ThrowsException() {
+        OrderItem item = new OrderItem();
+        item.setStatus(OrderItemStatus.PAID);
+        items.add(item);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> order.cancel());
+        assertEquals("Não é permitido cancelar um pedido que já possui itens pagos ou resgatados.", ex.getMessage());
+    }
 }

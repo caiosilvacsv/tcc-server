@@ -1,6 +1,7 @@
 package br.edu.ifnmg.pagtesouro.controllers;
 
-import br.edu.ifnmg.pagtesouro.domain.payment.dto.CheckoutRequestDTO;
+import br.edu.ifnmg.pagtesouro.domain.payment.dto.DirectCheckoutRequestDTO;
+import br.edu.ifnmg.pagtesouro.domain.payment.dto.OrderCheckoutRequestDTO;
 import br.edu.ifnmg.pagtesouro.domain.payment.dto.CheckoutResponseDTO;
 import br.edu.ifnmg.pagtesouro.domain.user.User;
 import br.edu.ifnmg.pagtesouro.services.payment.PaymentService;
@@ -9,9 +10,9 @@ import br.edu.ifnmg.pagtesouro.domain.payment.PaymentStatus;
 import br.edu.ifnmg.pagtesouro.exceptions.FindException;
 import br.edu.ifnmg.pagtesouro.repository.PaymentRepository;
 import br.edu.ifnmg.pagtesouro.services.payment.PaymentNotificationService;
+import br.edu.ifnmg.pagtesouro.domain.common.PageResponseDTO;
 import br.edu.ifnmg.pagtesouro.domain.payment.dto.PaymentHistoryResponseDTO;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -21,9 +22,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import reactor.core.publisher.Mono;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -32,7 +33,7 @@ import java.util.UUID;
  * @author Caio da Silva Viana
  */
 @RestController
-@RequestMapping("/api/payments")
+@RequestMapping("/payments")
 public class PaymentController {
 
     private final PaymentService paymentService;
@@ -52,32 +53,31 @@ public class PaymentController {
      * Rota pública para criação de pagamento simplificado/direto para usuários anônimos ou cidadãos externos.
      *
      * @param request O DTO contendo o ID do produto, quantidade e dados cadastrais do doador/pagador.
-     * @return Um Mono contendo a resposta com a URL de redirecionamento do PagTesouro e status 201 Created.
+     * @return O DTO com a resposta e URL de redirecionamento do PagTesouro com status 201 Created.
      */
     @PostMapping("/anonymous")
-    public Mono<ResponseEntity<CheckoutResponseDTO>> createPaymentAnonymous(@RequestBody @Valid CheckoutRequestDTO request) {
-        return paymentService.checkoutDirect(request)
-            .map(response -> ResponseEntity.status(HttpStatus.CREATED).body(response));
+    public ResponseEntity<CheckoutResponseDTO> createPaymentAnonymous(@RequestBody @Valid DirectCheckoutRequestDTO request) {
+        CheckoutResponseDTO response = paymentService.checkoutDirect(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
      * Rota privada autenticada para o aluno realizar o checkout de um Pedido (carrinho) pendente no portal.
+     * Agrupa automaticamente itens por código de serviço SISGRU e retorna a lista com as guias geradas.
      *
      * @param orderId O ID único do pedido cadastrado.
-     * @param request O DTO contendo os dados cadastrais do pagador da guia.
+     * @param request O DTO contendo os dados cadastrais opcionais do pagador da guia.
      * @param user O usuário estudante autenticado injetado pelo Spring Security.
-     * @return Um Mono contendo a resposta com a URL de redirecionamento do PagTesouro e status 201 Created.
+     * @return A lista com as respostas e URLs de redirecionamento do PagTesouro com status 201 Created.
      */
     @PostMapping("/checkout/{orderId}")
-    public Mono<ResponseEntity<CheckoutResponseDTO>> createPaymentCheckout(
+    public ResponseEntity<List<CheckoutResponseDTO>> createPaymentCheckout(
             @PathVariable UUID orderId,
-            @RequestBody @Valid CheckoutRequestDTO request,
+            @RequestBody(required = false) @Valid OrderCheckoutRequestDTO request,
             @AuthenticationPrincipal User user) {
-        System.out.println(orderId.toString());
-        System.out.println( request.toString());
-        System.out.println(user.toString());
-        return paymentService.checkoutOrder(orderId, request, user)
-            .map(response -> ResponseEntity.status(HttpStatus.CREATED).body(response));
+        OrderCheckoutRequestDTO checkoutRequest = request != null ? request : new OrderCheckoutRequestDTO(false);
+        List<CheckoutResponseDTO> responses = paymentService.checkoutOrder(orderId, checkoutRequest, user);
+        return ResponseEntity.status(HttpStatus.CREATED).body(responses);
     }
 
     /**
@@ -119,14 +119,15 @@ public class PaymentController {
      * e tentativas de pagamento geradas pelo contribuinte logado com base em seu CPF.
      *
      * @param user O usuário estudante autenticado injetado pelo Spring Security.
-     * @param pageable Configuração de paginação padrão (10 registros por página, ordenados por data de criação de forma decrescente).
-     * @return Um Mono contendo a página de respostas do histórico de pagamentos.
+     * @param pageable Configuração de paginação padrão (10 registros por página, ordenados por data de
+     *                 criação de forma decrescente).
+     * @return A página de respostas do histórico de pagamentos com status 200 OK.
      */
     @GetMapping
-    public Mono<ResponseEntity<Page<PaymentHistoryResponseDTO>>> getMyPayments(
+    public ResponseEntity<PageResponseDTO<PaymentHistoryResponseDTO>> getMyPayments(
             @AuthenticationPrincipal User user,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return paymentService.getMyPayments(user, pageable)
-                .map(ResponseEntity::ok);
+        PageResponseDTO<PaymentHistoryResponseDTO> payments = paymentService.getMyPayments(user, pageable);
+        return ResponseEntity.ok(payments);
     }
 }

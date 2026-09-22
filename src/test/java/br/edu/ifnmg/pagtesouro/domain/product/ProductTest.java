@@ -18,7 +18,7 @@ class ProductTest {
         UUID id = UUID.randomUUID();
         
         product.setId(id);
-        product.setTitle("Almoço - RU Estudante");
+        product.setTitle("Almoço - Estudante");
         product.setDescription("Tíquete de alimentação para almoço estudantil");
         product.setImage("almoco.png");
         product.setPrice(new BigDecimal("3.50"));
@@ -27,7 +27,7 @@ class ProductTest {
         product.setCategory(ProductCategory.TICKET);
         
         assertEquals(id, product.getId());
-        assertEquals("Almoço - RU Estudante", product.getTitle());
+        assertEquals("Almoço - Estudante", product.getTitle());
         assertEquals("Tíquete de alimentação para almoço estudantil", product.getDescription());
         assertEquals("almoco.png", product.getImage());
         assertEquals(new BigDecimal("3.50"), product.getPrice());

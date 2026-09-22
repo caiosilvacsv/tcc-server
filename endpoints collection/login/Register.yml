@@ -1,17 +1,20 @@
 info:
-  name: Login
+  name: Register
   type: http
-  seq: 2
+  seq: 1
 
 http:
   method: POST
-  url: "{{localhost}}auth/login"
+  url: "{{host}}auth/register"
   body:
     type: json
     data: |-
       {
         "email" : "caio@ifnmg.edu.br",
-        "password" : "1234"
+        "password" : "1234",
+        "name" : "Caio",
+        "last_name" : "Viana",
+        "cpf" : "12345678901"
       }
   auth: inherit
 
@@ -20,3 +23,4 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true

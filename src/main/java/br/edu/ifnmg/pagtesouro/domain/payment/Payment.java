@@ -13,6 +13,7 @@ import org.hibernate.annotations.Generated;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -203,11 +204,19 @@ public class Payment {
      * Relacionamento Muitos-para-Muitos: Associa quais itens do pedido estão vinculados
      * e serão quitados por esta tentativa de pagamento.
      */
-    @ManyToMany
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
         name = "payment_items",
         joinColumns = @JoinColumn(name = "payment_id"),
         inverseJoinColumns = @JoinColumn(name = "order_item_id")
     )
     private List<OrderItem> orderItems;
+
+    /**
+     * Define a lista de itens vinculados aplicando cópia defensiva para prevenir o erro do Hibernate
+     * 'Found shared references to a collection' caso a coleção já pertença a outra entidade (ex: Order).
+     */
+    public void setOrderItems(List<OrderItem> orderItems) {
+        this.orderItems = (orderItems != null) ? new ArrayList<>(orderItems) : new ArrayList<>();
+    }
 }

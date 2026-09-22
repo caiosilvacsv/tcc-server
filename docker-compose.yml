@@ -9,7 +9,7 @@ version: '3.8'
 
 services:
 
-  # 🐘 Banco de Dados PostgreSQL (Persistente)
+  # Banco de Dados PostgreSQL (Persistente)
   db:
     image: postgres:16-alpine
     container_name: tcc-postgres-db
@@ -29,7 +29,7 @@ services:
     networks:
       - tcc-network
 
-  # ☕ Backend Spring Boot (tcc-server)
+  # Backend Spring Boot (tcc-server)
   app:
     build:
       context: .
@@ -52,7 +52,7 @@ services:
 
       # Integração com a API do PagTesouro da STN
       PAGTESOURO_BASE_URL: "https://valpagtesouro.tesouro.gov.br"
-      PAGTESOURO_TOKEN_SALINAS: ${PAGTESOURO_TOKEN_SALINAS:-insira_seu_token_aqui}
+      PAGTESOURO_TOKEN: ${PAGTESOURO_TOKEN:-insira_seu_token_aqui}
       PAGTESOURO_URL_NOTIFICACAO: ${PAGTESOURO_URL_NOTIFICACAO:-http://localhost:8080/payment/webhook}
 
       # Daemon Failsafe de Conciliação Automática (Padrão: A cada 1 hora)
