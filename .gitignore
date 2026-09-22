@@ -34,4 +34,4 @@ build/
 src/main/resources/application-dev.properties
 .mvn/wrapper/maven-wrapper.properties
 .env
-.env.*
+.env
