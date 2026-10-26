@@ -11,23 +11,6 @@ import java.util.UUID;
 /**
  * Objeto de Transferência de Dados (DTO) para representação detalhada e paginada
  * do histórico de tentativas e transações de pagamento realizadas por um contribuinte.
- * <p>
- * **Conceito no TCC (Auditoria e Transparência):**
- * Modela as respostas das rotas REST de consulta de histórico, permitindo ao estudante ou doador
- * acompanhar o status de compensação das faturas do PagTesouro (Pix, Boleto, etc.).
- * </p>
- *
- * @param id Identificador único (UUID) interno da cobrança
- * @param referenceNumber Número de referência estritamente numérico gerado pelo Postgres
- * @param pagtesouroPaymentId ID externo da transação retornado pela STN
- * @param amount Valor total consolidado em centavos/decimal
- * @param status Situação atual da transação (ex: CREATED, COMPLETED)
- * @param paymentMethod Meio de pagamento processado (ex: PIX, BOLETO, CARTAO)
- * @param contributorName Nome do pagador cadastrado na GRU
- * @param contributorCpfCnpj CPF/CNPJ de faturamento
- * @param nextUrl URL de redirecionamento ou segunda via da cobrança
- * @param createdAt Carimbo de data/hora de geração da cobrança
- * @param paidAt Carimbo de data/hora de confirmação da compensação pelo banco
  *
  * @author Caio da Silva Viana
  */
@@ -42,8 +25,45 @@ public record PaymentHistoryResponseDTO(
     String contributorCpfCnpj,
     String nextUrl,
     Instant createdAt,
-    Instant paidAt
+    Instant paidAt,
+    UUID orderId,
+    String statusDescription,
+    String paymentMethodDescription
 ) {
+    /**
+     * Construtor de compatibilidade de 11 parâmetros.
+     */
+    public PaymentHistoryResponseDTO(
+        UUID id,
+        Long referenceNumber,
+        String pagtesouroPaymentId,
+        BigDecimal amount,
+        PaymentStatus status,
+        PaymentMethod paymentMethod,
+        String contributorName,
+        String contributorCpfCnpj,
+        String nextUrl,
+        Instant createdAt,
+        Instant paidAt
+    ) {
+        this(
+            id,
+            referenceNumber,
+            pagtesouroPaymentId,
+            amount,
+            status,
+            paymentMethod,
+            contributorName,
+            contributorCpfCnpj,
+            nextUrl,
+            createdAt,
+            paidAt,
+            null,
+            resolveStatusDescription(status),
+            resolveMethodDescription(paymentMethod)
+        );
+    }
+
     /**
      * Construtor de conveniência que converte a entidade JPA {@link Payment} em sua projeção DTO.
      *
@@ -61,7 +81,42 @@ public record PaymentHistoryResponseDTO(
             payment.getContributorCpfCnpj(),
             payment.getNextUrl(),
             payment.getCreatedAt(),
-            payment.getPaidAt()
+            payment.getPaidAt(),
+            extractOrderId(payment),
+            resolveStatusDescription(payment.getStatus()),
+            resolveMethodDescription(payment.getPaymentMethod())
         );
+    }
+
+    private static UUID extractOrderId(Payment payment) {
+        if (payment.getOrderItems() != null && !payment.getOrderItems().isEmpty()) {
+            var firstItem = payment.getOrderItems().get(0);
+            if (firstItem != null && firstItem.getOrder() != null) {
+                return firstItem.getOrder().getId();
+            }
+        }
+        return null;
+    }
+
+    private static String resolveStatusDescription(PaymentStatus status) {
+        if (status == null) return "Aguardando";
+        return switch (status) {
+            case CREATED -> "Sessão Criada";
+            case STARTED -> "Iniciado no PagTesouro";
+            case SUBMITTED -> "Submetido (Aguardando Compensação)";
+            case COMPLETED -> "Liquidado / Confirmado";
+            case REJECTED -> "Rejeitado";
+            case CANCELLED -> "Cancelado / Sessão Substituída";
+        };
+    }
+
+    private static String resolveMethodDescription(PaymentMethod method) {
+        if (method == null) return "A definir no PagTesouro";
+        return switch (method) {
+            case PIX -> "PIX Instantâneo";
+            case CREDIT_CARD -> "Cartão de Crédito";
+            case GRU -> "Boleto GRU";
+            case WALLET_BALANCE -> "Saldo em Carteira";
+        };
     }
 }

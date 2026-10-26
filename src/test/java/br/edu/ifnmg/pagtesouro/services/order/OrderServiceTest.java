@@ -143,7 +143,7 @@ class OrderServiceTest {
         item.setStatus(OrderItemStatus.PAID);
         item.setPaidAt(Instant.now());
 
-        User admin = new User("admin@ifnmg.edu.br", "hashed_pwd", "Admin", "98765432100");
+        User admin = new User("admin@ifnmg.edu.br", "hashed_pwd", "Admin", "Federal", "98765432100");
 
         when(orderItemRepository.findById(item.getId())).thenReturn(Optional.of(item));
         when(orderItemRepository.save(any(OrderItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -163,7 +163,7 @@ class OrderServiceTest {
         OrderItem item = order.getOrderItems().get(0);
         item.setStatus(OrderItemStatus.PENDING); // Ainda não foi pago
 
-        User admin = new User("admin@ifnmg.edu.br", "hashed_pwd", "Admin", "98765432100");
+        User admin = new User("admin@ifnmg.edu.br", "hashed_pwd", "Admin", "Federal", "98765432100");
 
         when(orderItemRepository.findById(item.getId())).thenReturn(Optional.of(item));
 
@@ -182,7 +182,7 @@ class OrderServiceTest {
         OrderItem item = order.getOrderItems().get(0);
         item.setStatus(OrderItemStatus.EXCHANGED); // Já foi consumido
 
-        User admin = new User("admin@ifnmg.edu.br", "hashed_pwd", "Admin", "98765432100");
+        User admin = new User("admin@ifnmg.edu.br", "hashed_pwd", "Admin", "Federal", "98765432100");
 
         when(orderItemRepository.findById(item.getId())).thenReturn(Optional.of(item));
 
@@ -308,7 +308,7 @@ class OrderServiceTest {
         item2.setQuantity(2);
         item2.setStatus(OrderItemStatus.PAID);
 
-        User admin = new User("admin@ifnmg.edu.br", "hashed_pwd", "Admin", "98765432100");
+        User admin = new User("admin@ifnmg.edu.br", "hashed_pwd", "Admin", "Federal", "98765432100");
         List<UUID> itemIds = List.of(item1.getId(), item2.getId());
 
         when(orderItemRepository.findAllById(itemIds)).thenReturn(List.of(item1, item2));
@@ -341,7 +341,7 @@ class OrderServiceTest {
         itemPending.setProduct(product);
         itemPending.setStatus(OrderItemStatus.PENDING); // Não pago
 
-        User admin = new User("admin@ifnmg.edu.br", "hashed_pwd", "Admin", "98765432100");
+        User admin = new User("admin@ifnmg.edu.br", "hashed_pwd", "Admin", "Federal", "98765432100");
         List<UUID> itemIds = List.of(itemPaid.getId(), itemPending.getId());
 
         when(orderItemRepository.findAllById(itemIds)).thenReturn(List.of(itemPaid, itemPending));

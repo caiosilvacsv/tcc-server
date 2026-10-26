@@ -1,39 +1,41 @@
 package br.edu.ifnmg.pagtesouro.repository;
 
 import br.edu.ifnmg.pagtesouro.domain.user.User;
+import br.edu.ifnmg.pagtesouro.domain.user.UserRoles;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 /**
  * Interface de repositório JPA responsável pelas operações de persistência da entidade {@link User}.
- * <p>
- * **Conceito no TCC:**
- * Abstrai o acesso aos dados cadastrais dos estudantes e administradores.
- * Fornece métodos utilitários essenciais para o fluxo de autenticação do Spring Security.
- * </p>
  *
  * @author Caio da Silva Viana
  */
 @Repository
 public interface UserRepository extends JpaRepository<User, UUID> {
 
-    /**
-     * Localiza um usuário pelo seu e-mail de acesso. Utilizado no fluxo de login e validação JWT.
-     *
-     * @param email O e-mail de login do usuário
-     * @return O {@link UserDetails} correspondente se localizado; {@code null} caso contrário
-     */
     UserDetails findByEmail(String email);
 
-    /**
-     * Localiza um usuário pelo seu CPF de contribuinte.
-     *
-     * @param cpf O CPF do contribuinte (apenas dígitos)
-     * @return O {@link UserDetails} correspondente se localizado; {@code null} caso contrário
-     */
-    UserDetails findByCpf(String cpf);
-}
+    Optional<User> findOptionalByEmail(String email);
 
+    UserDetails findByCpf(String cpf);
+
+    boolean existsByEmailAndIdNot(String email, UUID id);
+
+    long countByRoleAndActiveTrue(UserRoles role);
+
+    @Query("SELECT u FROM users u WHERE " +
+           "(:search IS NULL OR :search = '' OR " +
+           "LOWER(u.name) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(u.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "u.cpf LIKE CONCAT('%', :search, '%'))")
+    Page<User> searchUsers(@Param("search") String search, Pageable pageable);
+}

@@ -3,7 +3,9 @@ package br.edu.ifnmg.pagtesouro.infra.pagtesouro;
 import br.edu.ifnmg.pagtesouro.infra.pagtesouro.dto.PagTesouroRequestDTO;
 import br.edu.ifnmg.pagtesouro.infra.pagtesouro.dto.PagTesouroResponseDTO;
 import br.edu.ifnmg.pagtesouro.infra.pagtesouro.dto.PagTesouroQueryResponseDTO;
+import br.edu.ifnmg.pagtesouro.services.config.SystemConfigurationService;
 import lombok.Getter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -17,18 +19,20 @@ import reactor.core.publisher.Mono;
 @Component
 public class PagTesouroClient {
 
-  /**
-   * -- GETTER --
-   *  Retorna as propriedades de configuração do PagTesouro.
-   */
   @Getter
   private final PagTesouroProperties properties;
   private final WebClient webClient;
+  private SystemConfigurationService systemConfigurationService;
 
-  /**
-   * Construtor que recebe as propriedades do PagTesouro e o construtor do WebClient.
-   * Utiliza injeção de dependência pelo Spring para reaproveitar o builder global.
-   */
+  @Autowired
+  public PagTesouroClient(
+      PagTesouroProperties properties,
+      WebClient.Builder webClientBuilder,
+      @Autowired(required = false) SystemConfigurationService systemConfigurationService) {
+    this(properties, webClientBuilder);
+    this.systemConfigurationService = systemConfigurationService;
+  }
+
   public PagTesouroClient(PagTesouroProperties properties, WebClient.Builder webClientBuilder) {
     this.properties = properties;
     String base = this.properties.base_url() != null ? this.properties.base_url().trim() : "";
@@ -43,17 +47,24 @@ public class PagTesouroClient {
         .build();
   }
 
+  private String resolveBearerToken() {
+    if (systemConfigurationService != null) {
+      String dynamicToken = systemConfigurationService.getPagTesouroToken();
+      if (dynamicToken != null && !dynamicToken.isBlank()) {
+        return dynamicToken;
+      }
+    }
+    return properties.token();
+  }
+
   /**
    * Envia uma solicitação de pagamento (criação de transação/GRU) para a API do PagTesouro.
-   *
-   * @param request DTO com as informações fiscais e de valor da guia de pagamento.
-   * @return Um {@link Mono} contendo os detalhes do pagamento criado e a URL de redirecionamento.
    */
   public Mono<PagTesouroResponseDTO> createPayment(PagTesouroRequestDTO request) {
     return webClient
         .post()
         .uri("solicitacao-pagamento")
-        .headers(headers -> headers.setBearerAuth(properties.token()))
+        .headers(headers -> headers.setBearerAuth(resolveBearerToken()))
         .bodyValue(request)
         .retrieve()
         .bodyToMono(PagTesouroResponseDTO.class);
@@ -61,16 +72,12 @@ public class PagTesouroClient {
 
   /**
    * Consulta ativamente o status atual de uma transação específica no PagTesouro.
-   * Método essencial para auditoria, retorno de tela e conciliação bancária ativa.
-   *
-   * @param idPayment ID único da cobrança gerado pelo PagTesouro.
-   * @return Um {@link Mono} com os detalhes consolidados da transação, incluindo meio e status de pagamento.
    */
   public Mono<PagTesouroQueryResponseDTO> getPaymentStatus(String idPayment) {
     return webClient
         .get()
         .uri("pagamentos/{id}", idPayment)
-        .headers(headers -> headers.setBearerAuth(properties.token()))
+        .headers(headers -> headers.setBearerAuth(resolveBearerToken()))
         .retrieve()
         .bodyToMono(PagTesouroQueryResponseDTO.class);
   }

@@ -1,5 +1,6 @@
 package br.edu.ifnmg.pagtesouro.domain.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -28,6 +29,7 @@ public record RegisterDTO(
     String name,
 
     @NotBlank(message = "Sobrenome é obrigatório")
+    @JsonAlias({"lastName", "last_name"})
     String last_name,
 
     @NotBlank(message = "CPF é obrigatório")

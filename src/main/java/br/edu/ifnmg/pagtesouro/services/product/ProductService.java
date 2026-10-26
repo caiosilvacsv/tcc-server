@@ -174,7 +174,8 @@ public class ProductService {
     private void updateEntityFromDto(Product product, ProductRequestDTO dto) {
         product.setTitle(dto.title().trim());
         product.setDescription(dto.description());
-        product.setImage(dto.image());
+        product.setImageUrl(dto.imageUrl() != null ? dto.imageUrl() : dto.image());
+        product.setColor(dto.color());
         product.setPrice(dto.price());
         product.setActive(dto.active());
         product.setCodeService(dto.codeService().trim());

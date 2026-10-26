@@ -44,4 +44,8 @@ public record PageResponseDTO<T>(
             page.isLast()
         );
     }
+
+    public static <T> PageResponseDTO<T> from(Page<T> page) {
+        return new PageResponseDTO<>(page);
+    }
 }

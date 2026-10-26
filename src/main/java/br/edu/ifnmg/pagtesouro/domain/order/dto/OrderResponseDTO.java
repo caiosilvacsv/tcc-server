@@ -1,10 +1,9 @@
 package br.edu.ifnmg.pagtesouro.domain.order.dto;
 
+import br.edu.ifnmg.pagtesouro.domain.order.BuyerType;
 import br.edu.ifnmg.pagtesouro.domain.order.Order;
 import br.edu.ifnmg.pagtesouro.domain.order.OrderStatus;
 import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItem;
-
-import br.edu.ifnmg.pagtesouro.domain.order.BuyerType;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -18,17 +17,9 @@ import java.util.stream.Collectors;
  * <p>
  * <b>Conceito no TCC:</b>
  * Modela a projeção unificada do cabeçalho da transação do estudante ou visitante,
- * servindo como a resposta REST principal que expõe a agregação financeira e de estados dos itens.
+ * servindo como a resposta REST principal que expõe a agregação financeira, de estados dos itens
+ * e flags de controle de interface (Server-Driven UI: {@code canPay}, {@code canCancel}, {@code statusDescription}).
  * </p>
- *
- * @param id Identificador único global (UUID) do pedido no banco de dados local
- * @param totalAmount Valor monetário total consolidado do pedido (soma do valor total de todos os itens)
- * @param status Estado consolidado atual do ciclo de vida do pedido (ex: CREATED, PENDING_PAYMENT, COMPLETED)
- * @param createdAt Carimbo de data/hora (Instant) da criação original do pedido
- * @param items Lista detalhada contendo a projeção de cada item individual de cobrança pertencente a este pedido
- * @param buyerName Nome completo do comprador (aluno ou convidado)
- * @param buyerCpf CPF do comprador
- * @param buyerType Enquadramento do comprador ({@link BuyerType#STUDENT} ou {@link BuyerType#GUEST})
  *
  * @author Caio da Silva Viana
  */
@@ -40,7 +31,10 @@ public record OrderResponseDTO(
     List<OrderItemResponseDTO> items,
     String buyerName,
     String buyerCpf,
-    BuyerType buyerType
+    BuyerType buyerType,
+    String statusDescription,
+    boolean canPay,
+    boolean canCancel
 ) {
     /**
      * Construtor de compatibilidade para chamadas com 5 parâmetros.
@@ -52,7 +46,47 @@ public record OrderResponseDTO(
         Instant createdAt,
         List<OrderItemResponseDTO> items
     ) {
-        this(id, totalAmount, status, createdAt, items, null, null, null);
+        this(
+            id,
+            totalAmount,
+            status,
+            createdAt,
+            items,
+            null,
+            null,
+            null,
+            resolveStatusDescription(status),
+            computeCanPay(status, items),
+            computeCanCancel(status, items)
+        );
+    }
+
+    /**
+     * Construtor de compatibilidade para chamadas com 8 parâmetros.
+     */
+    public OrderResponseDTO(
+        UUID id,
+        BigDecimal totalAmount,
+        OrderStatus status,
+        Instant createdAt,
+        List<OrderItemResponseDTO> items,
+        String buyerName,
+        String buyerCpf,
+        BuyerType buyerType
+    ) {
+        this(
+            id,
+            totalAmount,
+            status,
+            createdAt,
+            items,
+            buyerName,
+            buyerCpf,
+            buyerType,
+            resolveStatusDescription(status),
+            computeCanPay(status, items),
+            computeCanCancel(status, items)
+        );
     }
 
     /**
@@ -75,20 +109,36 @@ public record OrderResponseDTO(
         );
     }
 
+    private static String resolveStatusDescription(OrderStatus status) {
+        if (status == null) return "Desconhecido";
+        return switch (status) {
+            case CREATED -> "Criado (Aguardando Guia)";
+            case PENDING_PAYMENT -> "Aguardando Pagamento";
+            case PARTIALLY_PAID -> "Pago Parcialmente";
+            case COMPLETED -> "Concluído / Quitado";
+            case CANCELLED -> "Cancelado";
+        };
+    }
+
+    private static boolean computeCanPay(OrderStatus status, List<OrderItemResponseDTO> items) {
+        if (status == null || status == OrderStatus.COMPLETED || status == OrderStatus.CANCELLED) {
+            return false;
+        }
+        return items != null && items.stream().anyMatch(i -> "PENDING".equalsIgnoreCase(i.status()));
+    }
+
+    private static boolean computeCanCancel(OrderStatus status, List<OrderItemResponseDTO> items) {
+        if (status == null || status == OrderStatus.COMPLETED || status == OrderStatus.CANCELLED) {
+            return false;
+        }
+        if (items == null || items.isEmpty()) {
+            return true;
+        }
+        return items.stream().noneMatch(i -> "PAID".equalsIgnoreCase(i.status()) || "EXCHANGED".equalsIgnoreCase(i.status()));
+    }
+
     /**
      * Objeto de Transferência de Dados interno (record) para representar a projeção detalhada de cada item de cobrança do pedido.
-     * <p>
-     * Fornece um mapeamento granular que conecta a quantidade comprada, o preço unitário e o status do pagamento individualizado.
-     * </p>
-     *
-     * @param id Identificador único global (UUID) do item de pedido no banco de dados
-     * @param productId Identificador único do produto/serviço acadêmico correspondente
-     * @param productTitle Título legível do serviço ou taxa (ex: "Tíquete de Refeição")
-     * @param quantity Quantidade de unidades adquiridas deste item de cobrança
-     * @param totalAmount Valor total acumulado para este item (preço unitário multiplicado pela quantidade)
-     * @param status Status individualizado de quitação deste item de cobrança (ex: PENDING, PAID, EXCHANGED)
-     * @param paidAt Data e hora de liquidação bancária do item
-     * @param exchangedAt Data e hora de baixa/troca física do tíquete no balcão
      */
     public record OrderItemResponseDTO(
         UUID id,
@@ -98,7 +148,10 @@ public record OrderResponseDTO(
         BigDecimal totalAmount,
         String status,
         Instant paidAt,
-        Instant exchangedAt
+        Instant exchangedAt,
+        String statusDescription,
+        String productColor,
+        String categoryDisplayName
     ) {
         /**
          * Construtor de compatibilidade para 6 parâmetros.
@@ -111,7 +164,47 @@ public record OrderResponseDTO(
             BigDecimal totalAmount,
             String status
         ) {
-            this(id, productId, productTitle, quantity, totalAmount, status, null, null);
+            this(
+                id,
+                productId,
+                productTitle,
+                quantity,
+                totalAmount,
+                status,
+                null,
+                null,
+                resolveItemStatusDescription(status),
+                null,
+                null
+            );
+        }
+
+        /**
+         * Construtor de compatibilidade para 8 parâmetros.
+         */
+        public OrderItemResponseDTO(
+            UUID id,
+            UUID productId,
+            String productTitle,
+            Integer quantity,
+            BigDecimal totalAmount,
+            String status,
+            Instant paidAt,
+            Instant exchangedAt
+        ) {
+            this(
+                id,
+                productId,
+                productTitle,
+                quantity,
+                totalAmount,
+                status,
+                paidAt,
+                exchangedAt,
+                resolveItemStatusDescription(status),
+                null,
+                null
+            );
         }
 
         /**
@@ -128,8 +221,23 @@ public record OrderResponseDTO(
                 item.getTotalAmount(),
                 item.getStatus() != null ? item.getStatus().name() : null,
                 item.getPaidAt(),
-                item.getExchangedAt()
+                item.getExchangedAt(),
+                resolveItemStatusDescription(item.getStatus() != null ? item.getStatus().name() : null),
+                item.getProduct() != null ? item.getProduct().getColor() : null,
+                (item.getProduct() != null && item.getProduct().getCategory() != null)
+                    ? item.getProduct().getCategory().getDisplayName() : null
             );
+        }
+
+        private static String resolveItemStatusDescription(String status) {
+            if (status == null) return "Pendente";
+            return switch (status.toUpperCase()) {
+                case "PENDING" -> "Aguardando Pagamento";
+                case "PAID" -> "Pago (Disponível)";
+                case "EXCHANGED" -> "Retirado no Guichê";
+                case "CANCELLED" -> "Cancelado";
+                default -> status;
+            };
         }
     }
 }

@@ -1,29 +1,27 @@
 package br.edu.ifnmg.pagtesouro.controllers;
 
+import br.edu.ifnmg.pagtesouro.domain.auth.dto.AuthResponseDTO;
+import br.edu.ifnmg.pagtesouro.domain.auth.dto.AuthSessionDTO;
+import br.edu.ifnmg.pagtesouro.domain.auth.dto.ForgotPasswordRequestDTO;
+import br.edu.ifnmg.pagtesouro.domain.auth.dto.ResetPasswordRequestDTO;
 import br.edu.ifnmg.pagtesouro.domain.user.User;
-import br.edu.ifnmg.pagtesouro.domain.user.dto.AuthenticationDTO;
-import br.edu.ifnmg.pagtesouro.domain.user.dto.LoginResponseDTO;
-import br.edu.ifnmg.pagtesouro.domain.user.dto.RegisterDTO;
-import br.edu.ifnmg.pagtesouro.domain.user.dto.UserResponseDTO;
+import br.edu.ifnmg.pagtesouro.domain.user.dto.*;
+import br.edu.ifnmg.pagtesouro.services.auth.PasswordResetService;
 import br.edu.ifnmg.pagtesouro.services.authentication.AuthService;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.Duration;
+import java.util.Map;
 
 /**
- * Controlador REST responsável por expor as rotas públicas de autenticação,
- * controle de acesso e registro de novos usuários no sistema.
- * <p>
- * **Conceito no TCC (Segurança e Criptografia):**
- * Centraliza os endpoints de segurança stateless. Realiza o login seguro de alunos/servidores e
- * o registro com criptografia e validação de CPF matemática em conformidade com as regras
- * de integridade de dados.
- * </p>
+ * Controlador REST responsável por expor as rotas de autenticação,
+ * controle de acesso, retificação de dados (LGPD) e recuperação de senha.
  *
  * @author Caio da Silva Viana
  */
@@ -32,44 +30,116 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthenticationController {
 
   private final AuthService authService;
+  private final PasswordResetService passwordResetService;
 
-  public AuthenticationController(AuthService authService) {
+  @Value("${api.security.token.expiration-time-in-minutes:20}")
+  private long expirationMinutes;
+
+  public AuthenticationController(AuthService authService, PasswordResetService passwordResetService) {
     this.authService = authService;
+    this.passwordResetService = passwordResetService;
   }
 
   /**
-   * Rota pública para autenticação de credenciais de usuários cadastrados.
-   * Valida o e-mail e senha e retorna um token de segurança JWT HMAC256.
-   *
-   * @param data O DTO contendo e-mail e senha de login.
-   * @return Um ResponseEntity contendo o DTO com o token JWT gerado e status 200 OK.
+   * Rota pública para autenticação.
+   * Emite estritamente um Cookie seguro HttpOnly ("accessToken") para mitigar ataques XSS.
+   * O corpo JSON retorna apenas o DTO de sessão mínima (AuthSessionDTO: name, lastName, role),
+   * em conformidade com o princípio de minimização da LGPD (sem CPF ou e-mail no payload).
    */
   @PostMapping("/login")
-  public ResponseEntity<LoginResponseDTO> login(@RequestBody @Valid AuthenticationDTO data){
-    return ResponseEntity.ok(authService.login(data));
+  public ResponseEntity<AuthSessionDTO> login(@RequestBody @Valid AuthenticationDTO data){
+    AuthResponseDTO response = authService.login(data);
+    ResponseCookie cookie = buildAuthCookie(response.token(), Duration.ofMinutes(expirationMinutes));
+
+    return ResponseEntity.ok()
+        .header(HttpHeaders.SET_COOKIE, cookie.toString())
+        .body(response.session());
   }
 
   /**
-   * Rota pública para cadastro e registro de novos contribuintes/alunos no portal.
-   * Efetua a criptografia de senha e a validação rígida de CPF antes da gravação física.
-   *
-   * @param data O DTO contendo os dados de registro.
-   * @return Um ResponseEntity contendo o token JWT gerado para login automático e status 200 OK.
+   * Rota pública para cadastro de novos contribuintes/alunos.
+   * Emite estritamente um Cookie seguro HttpOnly ("accessToken") e retorna a sessão mínima cadastrada.
    */
   @PostMapping("/register")
-  public ResponseEntity<LoginResponseDTO> register (@RequestBody @Valid RegisterDTO data){
-    return ResponseEntity.ok(authService.register(data));
+  public ResponseEntity<AuthSessionDTO> register(@RequestBody @Valid RegisterDTO data){
+    AuthResponseDTO response = authService.register(data);
+    ResponseCookie cookie = buildAuthCookie(response.token(), Duration.ofMinutes(expirationMinutes));
+
+    return ResponseEntity.ok()
+        .header(HttpHeaders.SET_COOKIE, cookie.toString())
+        .body(response.session());
   }
 
   /**
-   * Rota privada para obter os dados cadastrais do usuário atualmente autenticado.
-   *
-   * @param user Usuário autenticado obtido através do contexto de segurança JWT.
-   * @return Um ResponseEntity contendo os dados do perfil em UserResponseDTO e status 200 OK.
+   * Encerra a sessão do usuário no navegador limpando o cookie seguro HttpOnly.
+   */
+  @PostMapping("/logout")
+  public ResponseEntity<Void> logout() {
+    ResponseCookie cookie = buildAuthCookie("", Duration.ZERO);
+    return ResponseEntity.ok()
+        .header(HttpHeaders.SET_COOKIE, cookie.toString())
+        .build();
+  }
+
+  /**
+   * Rota privada para obter os dados cadastrais do usuário autenticado.
    */
   @GetMapping("/me")
   public ResponseEntity<UserResponseDTO> getMe(@AuthenticationPrincipal User user) {
     return ResponseEntity.ok(new UserResponseDTO(user));
   }
-}
 
+  /**
+   * Rota privada para retificação de dados cadastrais (nome, sobrenome e e-mail) - LGPD Art. 18.
+   */
+  @PatchMapping("/me")
+  public ResponseEntity<UserResponseDTO> updateProfile(
+      @AuthenticationPrincipal User user,
+      @RequestBody @Valid UpdateProfileRequestDTO dto) {
+    return ResponseEntity.ok(authService.updateProfile(user, dto));
+  }
+
+  /**
+   * Rota privada para troca voluntária de senha com validação prévia da senha atual.
+   */
+  @PatchMapping("/me/password")
+  public ResponseEntity<Void> changePassword(
+      @AuthenticationPrincipal User user,
+      @RequestBody @Valid ChangePasswordRequestDTO dto) {
+    authService.changePassword(user, dto);
+    return ResponseEntity.noContent().build();
+  }
+
+  /**
+   * Rota pública para solicitação de recuperação de senha via e-mail.
+   * Aplica proteção anti-enumeração LGPD.
+   */
+  @PostMapping("/forgot-password")
+  public ResponseEntity<Map<String, String>> forgotPassword(@RequestBody @Valid ForgotPasswordRequestDTO request) {
+    passwordResetService.initiatePasswordReset(request);
+    return ResponseEntity.ok(Map.of(
+        "message", "Se o e-mail informado estiver cadastrado em nosso sistema, as instruções de redefinição foram enviadas."
+    ));
+  }
+
+  /**
+   * Rota pública para efetivação de nova senha através de token de uso único.
+   */
+  @PostMapping("/reset-password")
+  public ResponseEntity<Map<String, String>> resetPassword(@RequestBody @Valid ResetPasswordRequestDTO request) {
+    passwordResetService.resetPassword(request);
+    return ResponseEntity.ok(Map.of(
+        "message", "Senha redefinida com sucesso. Você já pode fazer login com suas novas credenciais."
+    ));
+  }
+
+  private ResponseCookie buildAuthCookie(String token, Duration maxAge) {
+    return ResponseCookie.from("accessToken", token)
+        .httpOnly(true)
+        .secure(false) // Permite tráfego local/túneis; em produção com HTTPS o browser adiciona Secure
+        .path("/")
+        .maxAge(maxAge)
+        .sameSite("Lax")
+        .build();
+  }
+}

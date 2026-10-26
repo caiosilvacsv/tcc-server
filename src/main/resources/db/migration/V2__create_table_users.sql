@@ -2,10 +2,11 @@ CREATE TABLE users(
     id UUID PRIMARY KEY NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password TEXT NOT NULL,
-    name VARCHAR(255),
-    last_name VARCHAR(255),
-    cpf VARCHAR(11),
+    name VARCHAR(255) NOT NULL,
+    last_name VARCHAR(255) NOT NULL,
+    cpf VARCHAR(11) UNIQUE NOT NULL,
     role VARCHAR(20) NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE
 );

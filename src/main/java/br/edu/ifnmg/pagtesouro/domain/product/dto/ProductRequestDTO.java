@@ -18,7 +18,9 @@ public record ProductRequestDTO(
 
     String description,
 
-    String image,
+    String imageUrl,
+
+    String color,
 
     @NotNull(message = "O preço do produto é obrigatório.")
     @PositiveOrZero(message = "O preço do produto não pode ser negativo.")
@@ -31,4 +33,12 @@ public record ProductRequestDTO(
 
     @NotNull(message = "A categoria do produto é obrigatória.")
     ProductCategory category
-) {}
+) {
+    public ProductRequestDTO(String title, String description, String image, BigDecimal price, boolean active, String codeService, ProductCategory category) {
+        this(title, description, image, null, price, active, codeService, category);
+    }
+
+    public String image() {
+        return this.imageUrl;
+    }
+}

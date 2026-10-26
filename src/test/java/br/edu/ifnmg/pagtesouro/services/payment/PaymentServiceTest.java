@@ -1,6 +1,9 @@
 package br.edu.ifnmg.pagtesouro.services.payment;
 
 import br.edu.ifnmg.pagtesouro.domain.order.Order;
+import br.edu.ifnmg.pagtesouro.domain.order.OrderStatus;
+import br.edu.ifnmg.pagtesouro.exceptions.ConflictException;
+import java.time.temporal.ChronoUnit;
 import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItem;
 import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItemStatus;
 import br.edu.ifnmg.pagtesouro.domain.payment.Payment;
@@ -77,6 +80,7 @@ class PaymentServiceTest {
             userId,
             "caio@ifnmg.edu.br",
             "Caio",
+            "Silva",
             "hashed_password",
             "12345678901",
             br.edu.ifnmg.pagtesouro.domain.user.UserRoles.USER,
@@ -244,12 +248,86 @@ class PaymentServiceTest {
     }
 
     @Test
+    @DisplayName("Deve lançar ConflictException caso o pedido já esteja quitado")
+    void checkoutOrder_WhenAlreadyCompleted_ThrowsConflictException() {
+        order.getOrderItems().forEach(item -> item.setStatus(OrderItemStatus.PAID));
+        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+        OrderCheckoutRequestDTO request = new OrderCheckoutRequestDTO(false);
+
+        assertThrows(ConflictException.class, () ->
+            paymentService.checkoutOrder(order.getId(), request, user)
+        );
+
+        verify(pagTesouroClient, never()).createPayment(any());
+    }
+
+    @Test
+    @DisplayName("Deve lançar IllegalStateException se o pedido estiver cancelado")
+    void checkoutOrder_WhenCancelled_ThrowsIllegalStateException() {
+        order.getOrderItems().forEach(item -> item.setStatus(OrderItemStatus.CANCELLED));
+        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+        OrderCheckoutRequestDTO request = new OrderCheckoutRequestDTO(false);
+
+        assertThrows(IllegalStateException.class, () ->
+            paymentService.checkoutOrder(order.getId(), request, user)
+        );
+
+        verify(pagTesouroClient, never()).createPayment(any());
+    }
+
+    @Test
+    @DisplayName("STN Single-Use: Deve cancelar cobrança pendente anterior e gerar nova sessão na STN garantindo proximaUrl única")
+    void checkoutOrder_WhenPreviousPendingPaymentExists_CancelsOldPaymentAndCallsSTNForNewSession() {
+        OrderCheckoutRequestDTO request = new OrderCheckoutRequestDTO(false);
+
+        Payment previousPending = new Payment();
+        previousPending.setId(UUID.randomUUID());
+        previousPending.setPagtesouroPaymentId("stn-id-antigo-123");
+        previousPending.setNextUrl("https://valpagtesouro.tesouro.gov.br/iframe-url-antiga");
+        previousPending.setAmount(new BigDecimal("2.50"));
+        previousPending.setStatus(PaymentStatus.CREATED);
+        previousPending.setOrderItems(order.getOrderItems());
+
+        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+        when(paymentRepository.findPendingPaymentsByOrderId(order.getId()))
+            .thenReturn(List.of(previousPending));
+
+        when(paymentRepository.saveAndFlush(any(Payment.class))).thenAnswer(invocation -> {
+            Payment p = invocation.getArgument(0);
+            p.setId(UUID.randomUUID());
+            p.setReferenceNumber(100200L);
+            return p;
+        });
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(pagTesouroClient.getProperties()).thenReturn(properties);
+        when(pagTesouroClient.createPayment(any())).thenReturn(Mono.just(ptResponse));
+
+        List<CheckoutResponseDTO> responses = paymentService.checkoutOrder(order.getId(), request, user);
+
+        assertNotNull(responses);
+        assertEquals(1, responses.size());
+        assertEquals("pt-payment-id-123", responses.get(0).pagtesouroPaymentId());
+        assertEquals("https://valpagtesouro.tesouro.gov.br/iframe-url", responses.get(0).nextUrl());
+        assertEquals("23", responses.get(0).codeService());
+
+        // Verifica que o pagamento antigo foi cancelado
+        assertEquals(PaymentStatus.CANCELLED, previousPending.getStatus());
+        verify(paymentRepository).save(previousPending);
+
+        // Verifica que uma NOVA chamada foi feita à STN para obter uma nova proximaUrl
+        verify(pagTesouroClient, times(1)).createPayment(any());
+        verify(paymentRepository, times(1)).saveAndFlush(any());
+    }
+
+    @Test
     @DisplayName("Deve buscar o histórico paginado de pagamentos do estudante com sucesso")
     void getMyPaymentsSuccess() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Payment> page = new PageImpl<>(java.util.List.of(payment));
 
-        when(paymentRepository.findByContributorCpfCnpj(user.getCpf(), pageable)).thenReturn(page);
+        when(paymentRepository.findAllByContributorCpfCnpj(user.getCpf(), pageable)).thenReturn(page);
 
         PageResponseDTO<PaymentHistoryResponseDTO> response = paymentService.getMyPayments(user, pageable);
 
@@ -262,6 +340,6 @@ class PaymentServiceTest {
         assertEquals(payment.getId(), response.content().get(0).id());
         assertEquals(payment.getAmount(), response.content().get(0).amount());
 
-        verify(paymentRepository, times(1)).findByContributorCpfCnpj(user.getCpf(), pageable);
+        verify(paymentRepository, times(1)).findAllByContributorCpfCnpj(user.getCpf(), pageable);
     }
 }

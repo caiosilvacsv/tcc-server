@@ -18,7 +18,7 @@ import reactor.core.scheduler.Schedulers;
  */
 @Slf4j
 @RestController
-@RequestMapping("/payment")
+@RequestMapping("/payments")
 public class WebhookController {
 
   private final PaymentSyncService paymentSyncService;
@@ -26,7 +26,7 @@ public class WebhookController {
 
   public WebhookController(PaymentSyncService paymentSyncService, PagTesouroProperties properties) {
     this.paymentSyncService = paymentSyncService;
-      this.properties = properties;
+    this.properties = properties;
   }
 
   /**
@@ -42,7 +42,7 @@ public class WebhookController {
       @RequestBody WebhookRequestDTO request
   ) {
 
-    //Valida a existência do token e assinatura do cabeçalho Bearer do governo.
+    // Valida a existência do token e assinatura do cabeçalho Bearer do governo.
     if (auth == null || !auth.startsWith("Bearer "))
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
 

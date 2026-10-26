@@ -1,9 +1,10 @@
 package br.edu.ifnmg.pagtesouro.controllers;
 
+import br.edu.ifnmg.pagtesouro.domain.auth.dto.AuthResponseDTO;
+import br.edu.ifnmg.pagtesouro.domain.auth.dto.AuthSessionDTO;
 import br.edu.ifnmg.pagtesouro.domain.user.User;
 import br.edu.ifnmg.pagtesouro.domain.user.UserRoles;
 import br.edu.ifnmg.pagtesouro.domain.user.dto.AuthenticationDTO;
-import br.edu.ifnmg.pagtesouro.domain.user.dto.LoginResponseDTO;
 import br.edu.ifnmg.pagtesouro.domain.user.dto.RegisterDTO;
 import br.edu.ifnmg.pagtesouro.domain.user.dto.UserResponseDTO;
 import br.edu.ifnmg.pagtesouro.services.authentication.AuthService;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -33,23 +35,30 @@ class AuthenticationControllerTest {
     private AuthenticationController authenticationController;
 
     @Test
-    @DisplayName("Deve efetuar login com sucesso e retornar 200 OK com o Token JWT")
+    @DisplayName("Deve efetuar login com sucesso, definir cookie HttpOnly e retornar 200 OK com a sessão mínima (sem CPF)")
     void loginSuccess() {
         AuthenticationDTO request = new AuthenticationDTO("aluno@ifnmg.edu.br", "123456");
-        LoginResponseDTO responseDto = new LoginResponseDTO("mocked-jwt-token");
+        AuthSessionDTO sessionDto = new AuthSessionDTO("Aluno", "IFNMG", UserRoles.USER);
+        AuthResponseDTO responseDto = new AuthResponseDTO("mocked-jwt-token", sessionDto);
 
         when(authService.login(request)).thenReturn(responseDto);
 
-        ResponseEntity<LoginResponseDTO> response = authenticationController.login(request);
+        ResponseEntity<AuthSessionDTO> response = authenticationController.login(request);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertEquals("mocked-jwt-token", response.getBody().token());
+        assertEquals("Aluno", response.getBody().name());
+        assertEquals("IFNMG", response.getBody().lastName());
+        assertEquals(UserRoles.USER, response.getBody().role());
+        String setCookie = response.getHeaders().getFirst(HttpHeaders.SET_COOKIE);
+        assertNotNull(setCookie);
+        assertTrue(setCookie.contains("accessToken=mocked-jwt-token"));
+        assertTrue(setCookie.contains("HttpOnly"));
         verify(authService, times(1)).login(request);
     }
 
     @Test
-    @DisplayName("Deve registrar novo usuário com sucesso e retornar 200 OK com o Token JWT")
+    @DisplayName("Deve registrar novo usuário com sucesso, definir cookie HttpOnly e retornar 200 OK com a sessão mínima (sem CPF)")
     void registerSuccess() {
         RegisterDTO request = new RegisterDTO(
             "aluno@ifnmg.edu.br",
@@ -58,15 +67,22 @@ class AuthenticationControllerTest {
             "IFNMG",
             "11144477735"
         );
-        LoginResponseDTO responseDto = new LoginResponseDTO("mocked-jwt-token-register");
+        AuthSessionDTO sessionDto = new AuthSessionDTO("Aluno", "IFNMG", UserRoles.USER);
+        AuthResponseDTO responseDto = new AuthResponseDTO("mocked-jwt-token-register", sessionDto);
 
         when(authService.register(request)).thenReturn(responseDto);
 
-        ResponseEntity<LoginResponseDTO> response = authenticationController.register(request);
+        ResponseEntity<AuthSessionDTO> response = authenticationController.register(request);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertEquals("mocked-jwt-token-register", response.getBody().token());
+        assertEquals("Aluno", response.getBody().name());
+        assertEquals("IFNMG", response.getBody().lastName());
+        assertEquals(UserRoles.USER, response.getBody().role());
+        String setCookie = response.getHeaders().getFirst(HttpHeaders.SET_COOKIE);
+        assertNotNull(setCookie);
+        assertTrue(setCookie.contains("accessToken=mocked-jwt-token-register"));
+        assertTrue(setCookie.contains("HttpOnly"));
         verify(authService, times(1)).register(request);
     }
 

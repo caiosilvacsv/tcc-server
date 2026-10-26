@@ -1,10 +1,14 @@
 package br.edu.ifnmg.pagtesouro.services.authentication;
 
+import br.edu.ifnmg.pagtesouro.domain.auth.dto.AuthResponseDTO;
+import br.edu.ifnmg.pagtesouro.domain.auth.dto.AuthSessionDTO;
 import br.edu.ifnmg.pagtesouro.domain.user.CpfValidator;
 import br.edu.ifnmg.pagtesouro.domain.user.User;
 import br.edu.ifnmg.pagtesouro.domain.user.dto.AuthenticationDTO;
-import br.edu.ifnmg.pagtesouro.domain.user.dto.LoginResponseDTO;
+import br.edu.ifnmg.pagtesouro.domain.user.dto.ChangePasswordRequestDTO;
 import br.edu.ifnmg.pagtesouro.domain.user.dto.RegisterDTO;
+import br.edu.ifnmg.pagtesouro.domain.user.dto.UpdateProfileRequestDTO;
+import br.edu.ifnmg.pagtesouro.domain.user.dto.UserResponseDTO;
 import br.edu.ifnmg.pagtesouro.exceptions.ConflictException;
 import br.edu.ifnmg.pagtesouro.exceptions.InvalidCPFException;
 import br.edu.ifnmg.pagtesouro.infra.security.TokenService;
@@ -13,18 +17,12 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Serviço responsável por gerenciar as regras de negócio de autenticação e registro de usuários.
- * <p>
- * **Responsabilidades:**
- * <ul>
- *   <li>Autenticação de credenciais via {@link AuthenticationManager} (Spring Security).</li>
- *   <li>Criptografia de senhas no cadastro utilizando {@link PasswordEncoder} (BCrypt).</li>
- *   <li>Verificação de duplicidade de e-mails para novos cadastros.</li>
- *   <li>Geração e emissão de Tokens JWT de acesso seguro via {@link TokenService}.</li>
- * </ul>
- * </p>
+ * Serviço responsável por gerenciar as regras de negócio de autenticação, registro e perfil de usuários.
+ *
+ * @author Caio da Silva Viana
  */
 @Service
 public class AuthService {
@@ -47,41 +45,27 @@ public class AuthService {
   }
 
   /**
-   * Realiza o login do usuário validando as credenciais fornecidas.
-   * Se bem-sucedido, gera e retorna um Token JWT válido de acesso.
-   *
-   * @param data DTO contendo e-mail e senha de login
-   * @return DTO contendo o token JWT gerado
-   * @throws RuntimeException se o principal de autenticação for inválido
+   * Realiza o login do usuário validando as credenciais fornecidas e o status ativo da conta.
    */
-  public LoginResponseDTO login(AuthenticationDTO data) {
+  public AuthResponseDTO login(AuthenticationDTO data) {
     var userNamePassword = new UsernamePasswordAuthenticationToken(data.email(), data.password());
     var auth = this.authenticationManager.authenticate(userNamePassword);
     
-    // Uso do Pattern Matching para garantir a segurança de tipos
     if (auth.getPrincipal() instanceof User user) {
+      if (!user.isEnabled()) {
+        throw new SecurityException("Acesso negado: esta conta de usuário encontra-se desativada.");
+      }
       String token = tokenService.generateToken(user);
-      return new LoginResponseDTO(token);
+      return new AuthResponseDTO(token, new AuthSessionDTO(user));
     }
     throw new RuntimeException("Falha ao recuperar o usuário autenticado");
   }
 
   /**
-   * Cadastra um novo usuário no sistema e retorna um token de autenticação JWT.
-   * <p>
-   * **Validação e Normalização:**
-   * O CPF fornecido é normalizado antes da validação e da persistência (removendo pontos,
-   * traços e espaços), garantindo que formatos como {@code 123.456.789-09} sejam persistidos
-   * de maneira limpa apenas com os dígitos numéricos: {@code 12345678909}.
-   * </p>
-   *
-   * @param data DTO contendo os dados de registro recebidos na requisição (e-mail, senha, nome, CPF)
-   * @return DTO contendo o token de autenticação JWT gerado para login automático
-   * @throws InvalidCPFException se o CPF fornecido for considerado matematicamente inválido
-   * @throws ConflictException se o CPF informado já estiver cadastrado no sistema
-   * @throws ConflictException se o e-mail informado já estiver cadastrado no sistema
+   * Cadastra um novo usuário no sistema e retorna a sessão mínima e o token JWT para emissão do cookie.
    */
-  public LoginResponseDTO register(RegisterDTO data) {
+  @Transactional
+  public AuthResponseDTO register(RegisterDTO data) {
     String cpf = CpfValidator.normalize(data.cpf());
 
     if (!CpfValidator.isValid(cpf)) throw new InvalidCPFException();
@@ -92,13 +76,43 @@ public class AuthService {
     var user = new User(
         data.email(),
         password,
-        data.name(),
-        data.last_name(),
+        data.name().trim(),
+        data.last_name().trim(),
         cpf
     );
-    userRepository.save(user);
+    User savedUser = userRepository.save(user);
 
-    String token = tokenService.generateToken(user);
-    return new LoginResponseDTO(token);
+    String token = tokenService.generateToken(savedUser);
+    return new AuthResponseDTO(token, new AuthSessionDTO(savedUser));
+  }
+
+  /**
+   * Atualiza os dados cadastrais (nome, sobrenome e e-mail) do usuário autenticado (LGPD Art. 18).
+   */
+  @Transactional
+  public UserResponseDTO updateProfile(User user, UpdateProfileRequestDTO dto) {
+    if (userRepository.existsByEmailAndIdNot(dto.email().trim(), user.getId())) {
+      throw new ConflictException("O e-mail informado já está em uso por outro usuário.");
+    }
+
+    user.setName(dto.name().trim());
+    user.setLastName(dto.lastName().trim());
+    user.setEmail(dto.email().trim());
+
+    User updated = userRepository.save(user);
+    return new UserResponseDTO(updated);
+  }
+
+  /**
+   * Efetua a troca de senha do usuário autenticado, validando a senha atual.
+   */
+  @Transactional
+  public void changePassword(User user, ChangePasswordRequestDTO dto) {
+    if (!passwordEncoder.matches(dto.currentPassword(), user.getPassword())) {
+      throw new IllegalArgumentException("A senha atual informada está incorreta.");
+    }
+
+    user.setPassword(passwordEncoder.encode(dto.newPassword()));
+    userRepository.save(user);
   }
 }

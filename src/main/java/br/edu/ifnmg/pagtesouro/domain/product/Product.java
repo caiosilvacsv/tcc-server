@@ -59,9 +59,16 @@ public class Product {
     private String description;
 
     /**
-     * Link ou caminho relativo para a imagem do produto.
+     * Link ou caminho relativo para a imagem do produto no catálogo.
      */
-    private String image;
+    @Column(name = "image_url")
+    private String imageUrl;
+
+    /**
+     * Cor representativa para estilização de cards no catálogo (Ex: #10B981 ou emerald).
+     */
+    @Column(length = 30)
+    private String color;
 
     /**
      * Preço unitário do produto.
@@ -117,4 +124,17 @@ public class Product {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    // Métodos alias para retrocompatibilidade
+    public Product(UUID id, String title, String description, String imageUrl, BigDecimal price, boolean active, String codeService, ProductCategory category, Instant createdAt, Instant updatedAt) {
+        this(id, title, description, imageUrl, null, price, active, codeService, category, createdAt, updatedAt);
+    }
+
+    public String getImage() {
+        return this.imageUrl;
+    }
+
+    public void setImage(String image) {
+        this.imageUrl = image;
+    }
 }

@@ -2,6 +2,7 @@ package br.edu.ifnmg.pagtesouro.infra.exception;
 
 import br.edu.ifnmg.pagtesouro.exceptions.ConflictException;
 import br.edu.ifnmg.pagtesouro.exceptions.FindException;
+import br.edu.ifnmg.pagtesouro.exceptions.PagTesouroIntegrationException;
 import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -178,6 +179,14 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
    * Trata erros operacionais não tratados de runtime de forma genérica.
    * Retorna status 500 Internal Server Error.
    */
+  @ExceptionHandler(PagTesouroIntegrationException.class)
+  public @NonNull ResponseEntity<RestErrorMessage> handlePagTesouroException(PagTesouroIntegrationException e) {
+    RestErrorMessage restErrorMessage = new RestErrorMessage(e.getHttpStatus(), e.getMessage());
+    return ResponseEntity.status(e.getHttpStatus())
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(restErrorMessage);
+  }
+
   @ExceptionHandler(RuntimeException.class)
   public @NonNull ResponseEntity<RestErrorMessage> runtimeException(RuntimeException e) {
     String message = e.getMessage();

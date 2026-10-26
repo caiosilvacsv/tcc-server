@@ -1,6 +1,7 @@
 package br.edu.ifnmg.pagtesouro.services.payment;
 
 import br.edu.ifnmg.pagtesouro.domain.order.Order;
+import br.edu.ifnmg.pagtesouro.domain.order.OrderStatus;
 import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItem;
 import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItemStatus;
 import br.edu.ifnmg.pagtesouro.domain.payment.Payment;
@@ -14,14 +15,19 @@ import br.edu.ifnmg.pagtesouro.domain.product.Product;
 import br.edu.ifnmg.pagtesouro.domain.user.User;
 import br.edu.ifnmg.pagtesouro.exceptions.ConflictException;
 import br.edu.ifnmg.pagtesouro.exceptions.FindException;
+import br.edu.ifnmg.pagtesouro.exceptions.PagTesouroIntegrationException;
 import br.edu.ifnmg.pagtesouro.infra.pagtesouro.PagTesouroClient;
 import br.edu.ifnmg.pagtesouro.infra.pagtesouro.dto.PagTesouroRequestDTO;
 import br.edu.ifnmg.pagtesouro.infra.pagtesouro.dto.PagTesouroResponseDTO;
+import br.edu.ifnmg.pagtesouro.infra.pagtesouro.enums.PagTesouroErrorCode;
 import br.edu.ifnmg.pagtesouro.repository.OrderRepository;
 import br.edu.ifnmg.pagtesouro.repository.PaymentRepository;
 import br.edu.ifnmg.pagtesouro.repository.ProductRepository;
+import br.edu.ifnmg.pagtesouro.services.config.SystemConfigurationService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -43,6 +49,7 @@ import java.util.stream.Collectors;
  *
  * @author Caio da Silva Viana
  */
+@Slf4j
 @Service
 public class PaymentService {
 
@@ -50,28 +57,23 @@ public class PaymentService {
   private final PaymentRepository paymentRepository;
   private final OrderRepository orderRepository;
   private final PagTesouroClient pagTesouroClient;
+  private final SystemConfigurationService systemConfigurationService;
 
   public PaymentService(
       ProductRepository productRepository,
       PaymentRepository paymentRepository,
       OrderRepository orderRepository,
-      PagTesouroClient pagTesouroClient) {
+      PagTesouroClient pagTesouroClient,
+      SystemConfigurationService systemConfigurationService) {
     this.productRepository = productRepository;
     this.paymentRepository = paymentRepository;
     this.orderRepository = orderRepository;
     this.pagTesouroClient = pagTesouroClient;
+    this.systemConfigurationService = systemConfigurationService;
   }
 
   /**
    * Efetua o checkout direto e simplificado para um produto específico sem exigir carrinho prévio.
-   * <p>
-   * **Fluxo de Convidado (Opção B):**
-   * Cria um Pedido (Order) e um Item (OrderItem) vinculados aos dados cadastrais informados do convidado (guest),
-   * garantindo que a refeição possa ser auditada e resgatada no balcão de atendimento por conferência de CPF.
-   * </p>
-   *
-   * @param request Os dados de checkout contendo produto, quantidade e dados do pagador.
-   * @return O DTO do checkout resolvido com a URL de redirecionamento.
    */
   @Transactional
   public CheckoutResponseDTO checkoutDirect(DirectCheckoutRequestDTO request) {
@@ -95,10 +97,8 @@ public class PaymentService {
       throw new ConflictException("O produto não está disponível!");
     }
 
-    // Calcula o valor total consolidado
     BigDecimal amountTotal = product.getPrice().multiply(BigDecimal.valueOf(request.quantity()));
 
-    // 1. Cria a Ordem física para o comprador anônimo (guest)
     Order guestOrder = new Order();
     guestOrder.setUser(null);
     guestOrder.setGuestCpf(request.contributorCpfCnpj().trim());
@@ -107,7 +107,6 @@ public class PaymentService {
     guestOrder.setCreateAt(Instant.now());
     guestOrder.setOrderItems(new ArrayList<>());
 
-    // 2. Cria o item do pedido associado ao produto com status PENDING
     OrderItem orderItem = new OrderItem();
     orderItem.setOrder(guestOrder);
     orderItem.setProduct(product);
@@ -119,7 +118,6 @@ public class PaymentService {
     Order savedGuestOrder = orderRepository.save(guestOrder);
     List<OrderItem> savedItems = savedGuestOrder.getOrderItems();
 
-    // 3. Cria e persiste o pagamento localmente vinculado aos itens do convidado (status CREATED)
     Payment payment = createInitialPayment(
         amountTotal,
         request.contributorName().trim(),
@@ -132,31 +130,30 @@ public class PaymentService {
 
   /**
    * Efetua o checkout de um Pedido (carrinho) integrado para o estudante logado no portal do IFNMG.
-   * Agrupa automaticamente os itens pendentes por código de serviço SISGRU, gerando uma guia PagTesouro para cada serviço.
-   *
-   * @param orderId O ID único do pedido a ser pago.
-   * @param request Os dados cadastrais opcionais do contribuinte pagador.
-   * @param user O usuário estudante autenticado requisitante.
-   * @return A lista com os DTOs de checkout de cada serviço com suas respectivas URLs do PagTesouro.
    */
   @Transactional
   public List<CheckoutResponseDTO> checkoutOrder(UUID orderId, OrderCheckoutRequestDTO request, User user) {
-    // 1. Localiza o pedido no banco
     Order order = orderRepository.findById(orderId)
         .orElseThrow(() -> new FindException("Pedido com ID " + orderId + " não localizado."));
 
-    // 2. Proteção de Segurança do IFNMG: Somente o próprio dono do pedido ou ADMINs podem pagar
     if (!order.getUser().getId().equals(user.getId()) && !user.getRole().name().equals("ADMIN")) {
       throw new SecurityException("Acesso negado a este pedido.");
     }
 
-    // 3. Filtra apenas os itens de pedido que de fato estão pendentes de liquidação
+    if (order.getStatus() == OrderStatus.COMPLETED) {
+      throw new ConflictException("Este pedido já foi pago e liquidado anteriormente.");
+    }
+
+    if (order.getStatus() == OrderStatus.CANCELLED) {
+      throw new IllegalStateException("Não é possível realizar checkout de um pedido cancelado.");
+    }
+
     List<OrderItem> pendingItems = order.getOrderItems().stream()
         .filter(item -> item.getStatus() == OrderItemStatus.PENDING)
         .toList();
 
     if (pendingItems.isEmpty()) {
-      throw new IllegalStateException("Não existem itens pendentes de liquidação para este pedido.");
+      throw new ConflictException("Não existem itens pendentes de liquidação para este pedido.");
     }
 
     String contributorName = resolveContributorName(request, user);
@@ -166,7 +163,8 @@ public class PaymentService {
 
     boolean isMobile = request != null && request.isMobile();
 
-    // 4. Agrupa os itens pendentes por código de serviço SISGRU
+    List<Payment> priorPendingPayments = paymentRepository.findPendingPaymentsByOrderId(orderId);
+
     Map<String, List<OrderItem>> itemsByService = pendingItems.stream()
         .collect(Collectors.groupingBy(item -> item.getProduct().getCodeService()));
 
@@ -176,37 +174,35 @@ public class PaymentService {
       String serviceCode = entry.getKey();
       List<OrderItem> groupItems = entry.getValue();
 
-      // Calcula a receita total consolidada deste grupo de serviço
+      if (priorPendingPayments != null) {
+        for (Payment prior : priorPendingPayments) {
+          if (prior.getOrderItems() != null && prior.getOrderItems().stream()
+              .anyMatch(item -> item.getProduct() != null && serviceCode.equals(item.getProduct().getCodeService()))) {
+            log.info("Cancelando sessão de pagamento pendente anterior (id={}) para o pedido {} e serviço {}: a STN proíbe reutilização de proximaUrl no iframe.",
+                prior.getId(), orderId, serviceCode);
+            prior.setStatus(PaymentStatus.CANCELLED);
+            paymentRepository.save(prior);
+          }
+        }
+      }
+
       BigDecimal groupAmount = groupItems.stream()
           .map(OrderItem::getTotalAmount)
           .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-      // Persiste o pagamento vinculando-o aos itens do grupo
       Payment payment = createInitialPayment(groupAmount, contributorName, contributorCpf, groupItems);
-
       responses.add(executePagTesouroCheckout(payment, serviceCode, isMobile));
     }
 
     return responses;
   }
 
-  /**
-   * Resgata de forma paginada o histórico de todas as faturas e tentativas de pagamento
-   * efetuadas pelo contribuinte logado no portal com base em seu usuário.
-   *
-   * @param user O usuário estudante autenticado requisitante
-   * @param pageable Configuração de paginação (número de página, tamanho e ordenação)
-   * @return A página de DTOs correspondente
-   */
   @Transactional(readOnly = true)
   public PageResponseDTO<PaymentHistoryResponseDTO> getMyPayments(User user, Pageable pageable) {
-    Page<Payment> payments = paymentRepository.findByContributorCpfCnpj(user.getCpf(), pageable);
+    Page<Payment> payments = paymentRepository.findAllByContributorCpfCnpj(user.getCpf(), pageable);
     return new PageResponseDTO<>(payments.map(PaymentHistoryResponseDTO::new));
   }
 
-  /**
-   * Resolve o nome completo do contribuinte pagador respeitando regras de auditoria e tamanho de coluna.
-   */
   private String resolveContributorName(OrderCheckoutRequestDTO request, User user) {
     String fullName = user.getName();
     if (user.getLastName() != null && !user.getLastName().trim().isEmpty()) {
@@ -216,28 +212,23 @@ public class PaymentService {
     String contributorName = (request != null && request.contributorName() != null && !request.contributorName().trim().isEmpty())
         ? request.contributorName().trim() : fullName;
 
-    // Truncamento defensivo para respeitar o limite de 45 caracteres da coluna VARCHAR(45) no banco
     if (contributorName.length() > 45) {
       contributorName = contributorName.substring(0, 45);
     }
     return contributorName;
   }
 
-  /**
-   * Auxiliar responsável por instanciar e persistir o registro inicial de pagamento local.
-   */
   private Payment createInitialPayment(BigDecimal amount, String contributorName, String contributorCpf, List<OrderItem> orderItems) {
+    int expDays = systemConfigurationService != null
+        ? systemConfigurationService.getPaymentExpirationDays()
+        : 2;
+
     Payment payment = new Payment();
     payment.setAmount(amount);
     payment.setPrincipalAmount(amount);
     payment.setStatus(PaymentStatus.CREATED);
-
-    // Mês e Ano de competência atual (MMyyyy)
     payment.setCompetence(LocalDate.now().format(DateTimeFormatter.ofPattern("MMyyyy")));
-
-    // Expiração em 2 dias
-    payment.setExpiredAt(LocalDate.now().plusDays(2));
-
+    payment.setExpiredAt(LocalDate.now().plusDays(expDays > 0 ? expDays : 2));
     payment.setContributorName(contributorName);
     payment.setContributorCpfCnpj(contributorCpf);
 
@@ -248,10 +239,29 @@ public class PaymentService {
     return paymentRepository.saveAndFlush(payment);
   }
 
-  /**
-   * Constrói o payload oficial exigido pela API do PagTesouro (STN).
-   */
+  public String sanitizeNotificationUrl(String rawUrl) {
+    if (rawUrl == null || rawUrl.isBlank()) {
+      return null;
+    }
+    String trimmed = rawUrl.trim().toLowerCase();
+    List<String> allowedDomains = systemConfigurationService != null
+        ? systemConfigurationService.getAllowedNotificationDomains()
+        : List.of(".gov.br", ".edu.br");
+
+    boolean matches = allowedDomains.stream().anyMatch(domain -> trimmed.contains(domain.toLowerCase()));
+    if (!matches) {
+      log.warn("URL de notificação '{}' ignorada: a STN exige domínio oficial ({}) para evitar erro C0024.",
+          rawUrl, String.join(", ", allowedDomains));
+      return null;
+    }
+    return rawUrl.trim();
+  }
+
   private PagTesouroRequestDTO buildPagTesouroRequest(Payment payment, String serviceCode, boolean isMobile) {
+    String notifUrl = systemConfigurationService != null
+        ? systemConfigurationService.getNotificationUrl()
+        : pagTesouroClient.getProperties().url_notificacao();
+
     return new PagTesouroRequestDTO(
         Integer.parseInt(serviceCode),
         payment.getReferenceNumber() != null ? payment.getReferenceNumber().toString() : "0",
@@ -266,13 +276,10 @@ public class PaymentService {
         BigDecimal.ZERO,
         BigDecimal.ZERO,
         isMobile ? 1 : 2,
-        pagTesouroClient.getProperties().url_notificacao()
+        sanitizeNotificationUrl(notifUrl)
     );
   }
 
-  /**
-   * Executa a requisição síncrona ao PagTesouro e consolida a resposta localmente.
-   */
   private CheckoutResponseDTO executePagTesouroCheckout(Payment payment, String serviceCode, boolean isMobile) {
     PagTesouroRequestDTO ptRequest = buildPagTesouroRequest(payment, serviceCode, isMobile);
 
@@ -282,28 +289,55 @@ public class PaymentService {
           .block(Duration.ofSeconds(15));
     } catch (WebClientResponseException ex) {
       String details = ex.getResponseBodyAsString();
-      if (ex.getStatusCode().value() == 403 || ex.getStatusCode().value() == 401) {
-        throw new IllegalArgumentException(
-            "Erro de autenticação com o PagTesouro. Verifique se o Token está configurado corretamente e é válido. Detalhes: " + details);
+      int status = ex.getStatusCode().value();
+      if (status == 401 || status == 403) {
+        throw new PagTesouroIntegrationException(PagTesouroErrorCode.AUTH_ERROR, details);
       }
-      throw new RuntimeException("Erro na integração com o PagTesouro: " + ex.getStatusCode() + " - Detalhes: " + details, ex);
+      if (status == 422) {
+        PagTesouroErrorCode code = PagTesouroErrorCode.UNKNOWN_ERROR;
+        if (details != null && details.contains("C0024")) code = PagTesouroErrorCode.C0024;
+        else if (details != null && details.contains("C0012")) code = PagTesouroErrorCode.C0012;
+        else if (details != null && details.contains("C0001")) code = PagTesouroErrorCode.C0001;
+        throw new PagTesouroIntegrationException(code, details);
+      }
+      if (status >= 500) {
+        throw new PagTesouroIntegrationException(PagTesouroErrorCode.GATEWAY_ERROR, details);
+      }
+      throw new PagTesouroIntegrationException("Erro retornado pelo PagTesouro: " + ex.getStatusCode(), HttpStatus.BAD_GATEWAY, "PAGTESOURO_ERROR", details);
     }
 
     if (ptResponse == null) {
-      throw new RuntimeException("Resposta nula recebida da API do PagTesouro.");
+      throw new PagTesouroIntegrationException(PagTesouroErrorCode.GATEWAY_ERROR, "Resposta nula recebida da API do PagTesouro.");
     }
 
     payment.setPagtesouroPaymentId(ptResponse.idPayment());
     payment.setNextUrl(ptResponse.nextUrl());
 
     Payment saved = paymentRepository.save(payment);
+
+    List<String> itemsDesc = new ArrayList<>();
+    String categoryLabel = null;
+    if (saved.getOrderItems() != null) {
+      for (OrderItem oi : saved.getOrderItems()) {
+        String title = oi.getProduct() != null ? oi.getProduct().getTitle() : "Serviço Institucional";
+        int qty = oi.getQuantity() != null ? oi.getQuantity() : 1;
+        itemsDesc.add(qty + "x " + title);
+        if (categoryLabel == null && oi.getProduct() != null && oi.getProduct().getCategory() != null) {
+          categoryLabel = oi.getProduct().getCategory().getDisplayName();
+        }
+      }
+    }
+    String serviceTitle = "Guia SISGRU #" + serviceCode + (categoryLabel != null ? " — " + categoryLabel : "");
+
     return new CheckoutResponseDTO(
         saved.getId(),
         saved.getPagtesouroPaymentId(),
         saved.getAmount(),
         saved.getStatus().name(),
         saved.getNextUrl(),
-        serviceCode
+        serviceCode,
+        serviceTitle,
+        itemsDesc
     );
   }
 }

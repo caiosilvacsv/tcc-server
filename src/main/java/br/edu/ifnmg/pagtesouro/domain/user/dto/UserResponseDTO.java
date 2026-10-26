@@ -24,16 +24,22 @@ public record UserResponseDTO(
     String lastName,
     String email,
     String cpf,
-    UserRoles role
+    UserRoles role,
+    boolean active
 ) {
-  public UserResponseDTO(User user) {
-    this(
-        user.getId(),
-        user.getName(),
-        user.getLastName(),
-        user.getEmail(),
-        user.getCpf(),
-        user.getRole()
-    );
-  }
+    public UserResponseDTO(UUID id, String name, String lastName, String email, String cpf, UserRoles role) {
+        this(id, name, lastName, email, cpf, role, true);
+    }
+
+    public UserResponseDTO(User user) {
+        this(
+            user.getId(),
+            user.getName(),
+            user.getLastName(),
+            user.getEmail(),
+            user.getCpf(),
+            user.getRole(),
+            user.isActive()
+        );
+    }
 }

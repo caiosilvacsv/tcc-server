@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -30,6 +31,7 @@ import java.util.UUID;
 @Table(name = "users")
 @Entity(name = "users")
 @Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(of = "id")
@@ -94,17 +96,19 @@ public class User implements UserDetails {
     /**
      * Perfil de privilégios/acesso do usuário.
      * Salvo como texto no banco de dados PostgreSQL.
-     * -- SETTER --
-     *  Define o perfil de acesso do usuário.
-     *  Método essencial utilizado para promoção segura de permissões no startup (TCC DevOps).
-     *
-     * @param role O novo perfil de privilégios
      */
-    @Setter
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserRoles role;
+
+    /**
+     * Status de ativação da conta.
+     * Se falso, o usuário fica impedido de realizar login na aplicação.
+     */
+    @NotNull
+    @Column(nullable = false)
+    private boolean active = true;
 
     /**
      * Controle de auditoria: data e hora exata em que o usuário foi cadastrado.
@@ -122,11 +126,12 @@ public class User implements UserDetails {
 
     /**
      * Construtor de conveniência utilizado no fluxo de registro/cadastro de novos usuários.
-     * Define o perfil padrão inicial do cadastrado como {@code USER}.
+     * Define o perfil padrão inicial do cadastrado como {@code USER} e o status como ativo.
      *
      * @param email    E-mail de login
      * @param password Senha criptografada
-     * @param name     Nome completo
+     * @param name     Nome
+     * @param lastName Sobrenome
      * @param cpf      CPF (apenas dígitos)
      */
     public User(String email, String password, String name, String lastName, String cpf) {
@@ -136,29 +141,11 @@ public class User implements UserDetails {
         this.lastName = lastName;
         this.cpf = cpf;
         this.role = UserRoles.USER;
+        this.active = true;
     }
 
-    /**
-     * Construtor de compatibilidade utilizado em testes legados que esperavam 4 parâmetros de texto.
-     * Define lastName como vazio e o perfil padrão inicial como USER.
-     */
-    public User(String email, String password, String name, String cpf) {
-        this(email, password, name, "", cpf);
-    }
-
-    /**
-     * Construtor de compatibilidade completo de 8 parâmetros utilizado para instanciar mock em testes.
-     */
-    public User(UUID id, String email, String name, String password, String cpf, UserRoles role, Instant createdAt, Instant updatedAt) {
-        this.id = id;
-        this.email = email;
-        this.name = name;
-        this.lastName = "";
-        this.password = password;
-        this.cpf = cpf;
-        this.role = role;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
+    public User(UUID id, String email, String name, String lastName, String password, String cpf, UserRoles role, Instant createdAt, Instant updatedAt) {
+        this(id, email, name, lastName, password, cpf, role, true, createdAt, updatedAt);
     }
 
     /**
@@ -178,58 +165,31 @@ public class User implements UserDetails {
         return List.of(new SimpleGrantedAuthority("ROLE_USER"));
     }
 
-    /**
-     * Retorna o identificador de login (e-mail) para autenticação do Spring Security.
-     *
-     * @return O e-mail do usuário
-     */
     @Override
-    public @NonNull String getUsername() {
-        return email;
+    public String getUsername() {
+        return this.email;
     }
 
-    /**
-     * Indica se a conta do usuário expirou. Uma conta expirada impede a autenticação.
-     *
-     * @return {@code true} se a conta do usuário for válida (não expirada),
-     *         {@code false} caso contrário.
-     */
     @Override
     public boolean isAccountNonExpired() {
-        return true; // Conta vitalícia
+        return true;
     }
 
-    /**
-     * Indica se o usuário está bloqueado ou desbloqueado. Um usuário bloqueado não consegue fazer login.
-     *
-     * @return {@code true} se o usuário não estiver bloqueado,
-     *         {@code false} caso contrário.
-     */
     @Override
     public boolean isAccountNonLocked() {
-        return true; // Conta desbloqueada
+        return true;
     }
 
-    /**
-     * Indica se as credenciais (senha) do usuário expiraram. Senhas expiradas impedem o login automático.
-     *
-     * @return {@code true} se a senha do usuário for válida (não expirada),
-     *         {@code false} caso contrário.
-     */
     @Override
     public boolean isCredentialsNonExpired() {
-        return true; // Senha permanente
+        return true;
     }
 
     /**
-     * Indica se o usuário está ativo/habilitado no sistema. Contas desabilitadas são rejeitadas no login.
-     *
-     * @return {@code true} se o usuário estiver habilitado,
-     *         {@code false} caso contrário.
+     * Retorna se a conta está ativa e habilitada para autenticação no Spring Security.
      */
     @Override
     public boolean isEnabled() {
-        return true; // Usuário ativo
+        return this.active;
     }
-
 }

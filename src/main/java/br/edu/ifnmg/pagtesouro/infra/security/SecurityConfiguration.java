@@ -65,14 +65,18 @@ public class SecurityConfiguration {
                 "/swagger/**",
                 "/swagger-ui/**",
                 "/swagger-ui.html",
-                "/v3/api-docs/**"
+                "/v3/api-docs/**",
+                "/actuator/health",
+                "/actuator/info"
             ).permitAll()
-            .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
-            .requestMatchers(HttpMethod.POST, "/auth/register").permitAll()
-            .requestMatchers(HttpMethod.POST, "/payment/webhook").permitAll()
+            .requestMatchers(HttpMethod.POST, "/auth/login", "/auth/register", "/auth/forgot-password", "/auth/reset-password").permitAll()
+            .requestMatchers(HttpMethod.POST, "/payments/webhook").permitAll()
             .requestMatchers(HttpMethod.POST, "/payments/anonymous").permitAll()
+            .requestMatchers(HttpMethod.GET, "/payments/*/sse").permitAll()
             .requestMatchers(HttpMethod.GET, "/orders/guest").permitAll()
             .requestMatchers(HttpMethod.GET, "/product/**").permitAll()
+            .requestMatchers(HttpMethod.GET, "/config/public").permitAll()
+            .requestMatchers("/admin/**", "/users/**", "/config/**").hasRole("ADMIN")
             .requestMatchers(HttpMethod.POST, "/product").hasRole("ADMIN")
             .requestMatchers(HttpMethod.PUT, "/product/**").hasRole("ADMIN")
             .requestMatchers(HttpMethod.DELETE, "/product/**").hasRole("ADMIN")
@@ -111,10 +115,6 @@ public class SecurityConfiguration {
 
   /**
    * Garante a interoperabilidade segura entre o backend SPRING e clientes webs's externos.
-   * <p>
-   *   Mecanismo que padroniza a política de mesma origem, assim declara explicitamente a autorização para consumir
-   *   seus dados.
-   * </p>
    *
    * @return Registrador de regras de CORS baseado em padrões de URL.
    */
@@ -139,15 +139,6 @@ public class SecurityConfiguration {
 
   /**
    * Interface central do Spring Security responsável por validar credenciais de usuário.
-   * <p>
-   *   Se as credenciais estiverem corretas, retorna um objeto Authentication preenchido
-   *   com os dados do usuário (Principal) e suas permissões (GrantedAuthorities).
-   *   Caso contrário, lança BadCredentialsException.
-   * </p>
-   *
-   * @param authenticationConfiguration Objeto Authentication preenchido com os dados do usuário.
-   * @return Authentication do SPRING SECURITY
-   * @throws Exception Assegura que retorne um JSON padronizado.
    */
   @Bean
   public AuthenticationManager authenticationManager ( AuthenticationConfiguration authenticationConfiguration) throws Exception {
@@ -156,8 +147,6 @@ public class SecurityConfiguration {
 
   /**
    * Gera o hash criptográfico.
-   *
-   * @return Hash da senha
    */
   @Bean
   public PasswordEncoder passwordEncoder(){

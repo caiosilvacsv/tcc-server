@@ -42,7 +42,7 @@ Nesta etapa do projeto, foram implementadas as seguintes soluções arquiteturai
 * **Paginação Limpa (`PageResponseDTO`)**: DTO genérico de 5 elementos que remove o excesso de metadados padrão do Spring Data, ideal para montagem de tabelas fluidas no frontend.
 * **Tratamento Global de Erros (`RestExceptionHandler`)**: Interceptador `@RestControllerAdvice` que captura exceções e garante respostas padronizadas em `application/json` com os códigos HTTP semânticos correspondentes (400, 401, 403, 404, 409, 422).
 * **Documentação Swagger UI / OpenAPI 3**: Integração viva do SpringDoc exposta diretamente no caminho `/swagger` com suporte à autenticação Bearer.
-* **Qualidade de Código**: Suite automatizada com **94 testes unitários e de integração** 100% herméticos e aprovados com 100% de sucesso (`mvn clean test`).
+* **Qualidade de Código**: Suite automatizada com **118 testes unitários e de integração** 100% herméticos e aprovados com 100% de sucesso (`mvn clean test`).
 
 ---
 
@@ -83,7 +83,7 @@ O `tcc-server` está completamente estruturado e pronto para atender os seguinte
 
 * **Linguagem & Plataforma**: Java 25 & Spring Boot 4.0.6
 * **Persistência de Dados**: Spring Data JPA, Hibernate, PostgreSQL 16
-* **Migrações de Banco**: Flyway Migration (scripts versionados V1 a V7)
+* **Migrações de Banco**: Flyway Migration (scripts versionados V1 a V9)
 * **Comunicação Reativa**: Spring WebFlux (`WebClient`) & Spring Web MVC (`SseEmitter`)
 * **Segurança**: Spring Security 6, JWT (JSON Web Tokens), BCrypt
 * **Documentação de API**: SpringDoc OpenAPI 3 (Swagger UI)
@@ -118,7 +118,7 @@ O sistema segue os preceitos do **Twelve-Factor App**, permitindo configuração
 
 ## 🧪 5. Execução dos Testes Automatizados
 
-Para rodar a suíte completa de **94 testes unitários e de integração herméticos** (100% offline):
+Para rodar a suíte completa de **118 testes unitários e de integração herméticos** (100% offline):
 
 ```bash
 mvn clean test

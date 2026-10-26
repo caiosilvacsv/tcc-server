@@ -62,7 +62,8 @@ class AdminInitializerTest {
         User user = new User(
                 UUID.randomUUID(),
                 email,
-                "Caio Viana",
+                "Caio",
+                "Viana",
                 "hash",
                 "12345678901",
                 UserRoles.USER,
@@ -88,7 +89,8 @@ class AdminInitializerTest {
         User user = new User(
                 UUID.randomUUID(),
                 email,
-                "Caio Viana",
+                "Caio",
+                "Viana",
                 "hash",
                 "12345678901",
                 UserRoles.ADMIN,
