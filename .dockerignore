@@ -1,0 +1,23 @@
+# ==============================================================================
+# .dockerignore para o Backend (tcc-server)
+# Mantém o contexto de build do Docker mínimo (apenas pom.xml e src/)
+# ==============================================================================
+target/
+.git/
+.gitignore
+.mvn/
+mvnw
+mvnw.cmd
+.env
+.env.*
+.idea/
+.vscode/
+*.iml
+*.log
+logs/
+graphify-out/
+endpoints collection/
+nginx/
+*.md
+docker-compose*.yml
+Dockerfile

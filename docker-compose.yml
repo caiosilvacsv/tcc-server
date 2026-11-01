@@ -1,8 +1,8 @@
 # ==============================================================================
-# Docker Compose para Implantação e Execução Local do Ecossistema TCC
+# Docker Compose para Implantação e Execução Isolada do Backend (tcc-server)
 # ==============================================================================
 # Sobe de forma orquestrada o banco de dados PostgreSQL e o backend tcc-server
-# garantindo consistência, healthchecks ativos e variáveis sincronizadas.
+# garantindo consistência, rotação de logs, healthchecks ativos e variáveis sincronizadas.
 # ==============================================================================
 
 services:
@@ -17,7 +17,7 @@ services:
       POSTGRES_USER: ${POSTGRESSQL_USER:-tcc_user}
       POSTGRES_PASSWORD: ${POSTGRESSQL_PASSWORD:-tcc_pass}
     ports:
-      - "5432:5432" # Expõe a porta para auditoria via DBeaver / pgAdmin / DataGrip
+      - "127.0.0.1:5432:5432" # Expõe localmente para auditoria via DBeaver / pgAdmin / DataGrip
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -25,6 +25,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - tcc-network
 
@@ -54,11 +59,14 @@ services:
       JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-20}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
       INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:-admin@ifnmg.edu.br}
+      COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-Lax}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
 
       # Integração com a API do PagTesouro da STN
       PAGTESOURO_BASE_URL: ${PAGTESOURO_BASE_URL:-https://valpagtesouro.tesouro.gov.br}
       PAGTESOURO_TOKEN: ${PAGTESOURO_TOKEN:-${PAGTESOURO_TOKEN_SALINAS:-}}
-      PAGTESOURO_URL_NOTIFICACAO: ${PAGTESOURO_URL_NOTIFICACAO:-http://localhost:8080/api/payments/webhook}
+      PAGTESOURO_URL_NOTIFICACAO: ${PAGTESOURO_URL_NOTIFICACAO:-}
+      PAGTESOURO_NOTIFICATION_DOMAINS: ${PAGTESOURO_NOTIFICATION_DOMAINS:-.gov.br,.edu.br}
 
       # Daemon Failsafe de Conciliação Automática (Padrão: A cada 1 hora)
       PAGTESOURO_DAEMON_CRON: ${PAGTESOURO_DAEMON_CRON:-0 0 * * * *}
@@ -79,6 +87,11 @@ services:
     depends_on:
       db:
         condition: service_healthy # Aguarda o PostgreSQL estar totalmente operacional
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - tcc-network
 
