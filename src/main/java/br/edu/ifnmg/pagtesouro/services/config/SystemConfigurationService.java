@@ -115,6 +115,9 @@ public class SystemConfigurationService {
     @Value("${api.pagtesouro.url_notificacao:}")
     private String defaultNotificationUrl;
 
+    @Value("${api.pagtesouro.notification-domains:.gov.br,.edu.br}")
+    private String defaultNotificationDomains;
+
     @Value("${api.order.abandoned-expiration-days:10}")
     private int defaultAbandonedDays;
 
@@ -230,7 +233,10 @@ public class SystemConfigurationService {
     }
 
     public List<String> getAllowedNotificationDomains() {
-        String raw = get("pagtesouro.notification_domains", ".gov.br,.edu.br");
+        String fallback = (defaultNotificationDomains != null && !defaultNotificationDomains.isBlank())
+            ? defaultNotificationDomains
+            : ".gov.br,.edu.br";
+        String raw = get("pagtesouro.notification_domains", fallback);
         return Arrays.stream(raw.split(","))
             .map(String::trim)
             .filter(s -> !s.isEmpty())

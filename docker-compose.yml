@@ -65,6 +65,17 @@ services:
 
       # Expiração Automática de Pedidos Abandonados (Padrão: 10 dias)
       ORDER_ABANDONED_EXPIRATION_DAYS: ${ORDER_ABANDONED_EXPIRATION_DAYS:-10}
+
+      # Proxy Reverso (Nginx / OCI)
+      SERVER_FORWARD_HEADERS_STRATEGY: ${SERVER_FORWARD_HEADERS_STRATEGY:-framework}
+
+      # Configurações de Envio de E-mail (Recuperação de Senha)
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-smtp.gmail.com}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-nao-responda@ifnmg.edu.br}
+      FRONTEND_RESET_PASSWORD_URL: ${FRONTEND_RESET_PASSWORD_URL:-http://localhost:3000/reset-password}
     depends_on:
       db:
         condition: service_healthy # Aguarda o PostgreSQL estar totalmente operacional

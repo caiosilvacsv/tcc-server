@@ -35,6 +35,9 @@ public class AuthenticationController {
   @Value("${api.security.token.expiration-time-in-minutes:20}")
   private long expirationMinutes;
 
+  @Value("${api.security.cookie.secure:false}")
+  private boolean cookieSecure;
+
   public AuthenticationController(AuthService authService, PasswordResetService passwordResetService) {
     this.authService = authService;
     this.passwordResetService = passwordResetService;
@@ -136,7 +139,7 @@ public class AuthenticationController {
   private ResponseCookie buildAuthCookie(String token, Duration maxAge) {
     return ResponseCookie.from("accessToken", token)
         .httpOnly(true)
-        .secure(false) // Permite tráfego local/túneis; em produção com HTTPS o browser adiciona Secure
+        .secure(cookieSecure)
         .path("/")
         .maxAge(maxAge)
         .sameSite("Lax")
