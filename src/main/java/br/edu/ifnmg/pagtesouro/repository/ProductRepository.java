@@ -4,7 +4,6 @@ import br.edu.ifnmg.pagtesouro.domain.product.Product;
 import br.edu.ifnmg.pagtesouro.domain.product.ProductCategory;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.UUID;
@@ -18,7 +17,7 @@ import java.util.UUID;
  *
  * @author Caio da Silva Viana
  */
-@Repository
+
 public interface ProductRepository extends JpaRepository<Product, UUID> {
     
     /**

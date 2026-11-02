@@ -4,6 +4,7 @@ import br.edu.ifnmg.pagtesouro.domain.order.BuyerType;
 import br.edu.ifnmg.pagtesouro.domain.order.Order;
 import br.edu.ifnmg.pagtesouro.domain.order.OrderStatus;
 import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItem;
+import br.edu.ifnmg.pagtesouro.domain.user.CpfValidator;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -36,6 +37,9 @@ public record OrderResponseDTO(
     boolean canPay,
     boolean canCancel
 ) {
+    public OrderResponseDTO {
+        buyerCpf = buyerCpf != null ? CpfValidator.mask(buyerCpf) : null;
+    }
     /**
      * Construtor de compatibilidade para chamadas com 5 parâmetros.
      */
@@ -104,7 +108,7 @@ public record OrderResponseDTO(
                 .map(OrderItemResponseDTO::new)
                 .collect(Collectors.toList()) : List.of(),
             order.getBuyerName(),
-            order.getBuyerCpf(),
+            null,
             order.getBuyerType()
         );
     }

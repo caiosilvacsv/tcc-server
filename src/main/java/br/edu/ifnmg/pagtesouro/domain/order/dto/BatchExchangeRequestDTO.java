@@ -1,6 +1,5 @@
 package br.edu.ifnmg.pagtesouro.domain.order.dto;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotEmpty;
 
@@ -22,6 +21,5 @@ import java.util.UUID;
 public record BatchExchangeRequestDTO(
     @NotEmpty(message = "A lista de itens para baixa não pode ser vazia!")
     @JsonProperty("itemIds")
-    @JsonAlias({"item_ids", "itemIds", "items"})
     List<UUID> itemIds
 ) {}

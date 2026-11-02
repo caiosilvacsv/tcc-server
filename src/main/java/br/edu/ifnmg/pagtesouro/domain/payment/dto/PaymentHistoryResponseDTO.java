@@ -3,6 +3,7 @@ package br.edu.ifnmg.pagtesouro.domain.payment.dto;
 import br.edu.ifnmg.pagtesouro.domain.payment.Payment;
 import br.edu.ifnmg.pagtesouro.domain.payment.PaymentMethod;
 import br.edu.ifnmg.pagtesouro.domain.payment.PaymentStatus;
+import br.edu.ifnmg.pagtesouro.domain.user.CpfValidator;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -30,6 +31,9 @@ public record PaymentHistoryResponseDTO(
     String statusDescription,
     String paymentMethodDescription
 ) {
+    public PaymentHistoryResponseDTO {
+        contributorCpfCnpj = CpfValidator.mask(contributorCpfCnpj);
+    }
     /**
      * Construtor de compatibilidade de 11 parâmetros.
      */

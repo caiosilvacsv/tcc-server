@@ -2,6 +2,7 @@ package br.edu.ifnmg.pagtesouro.domain.order.dto;
 
 import br.edu.ifnmg.pagtesouro.domain.order.BuyerType;
 import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItem;
+import br.edu.ifnmg.pagtesouro.domain.user.CpfValidator;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -40,6 +41,9 @@ public record TicketReadyResponseDTO(
     BuyerType buyerType,
     Instant paidAt
 ) {
+    public TicketReadyResponseDTO {
+        buyerCpf = CpfValidator.mask(buyerCpf);
+    }
     /**
      * Construtor de conveniência que constrói a projeção a partir de uma entidade {@link OrderItem}.
      *

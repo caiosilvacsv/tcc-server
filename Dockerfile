@@ -1,24 +1,24 @@
+# syntax=docker/dockerfile:1
 # ==============================================================================
 # Dockerfile Multiestágio Ultra-Enxuto para o Backend (tcc-server)
 # Plataforma: Java 25 & Spring Boot 4.0.6
-# Otimizado com Layered Extraction (jarmode=tools), usuário não-root e JVM enxuta
+# Otimizado com Cache Mount do Maven, Layered Extraction e JVM enxuta
 # ==============================================================================
 
 # --- Estágio 1: Compilação, Empacotamento e Extração de Camadas (Build) ---
 FROM eclipse-temurin:25-jdk-alpine AS builder
 
-# Instala o Maven no Alpine sem manter cache de índices
+# Instala o Maven no Alpine e limita uso de RAM durante o build para não sobrecarregar o Docker
 RUN apk add --no-cache maven
+ENV MAVEN_OPTS="-Xmx512m -XX:+TieredCompilation -XX:TieredStopAtLevel=1"
 
 WORKDIR /build
 
-# 1. Copia primeiro apenas o POM para cachear o download das dependências
+# Compila usando Cache Mount do BuildKit (baixa apenas o necessário e mantém o cache em /root/.m2)
 COPY pom.xml .
-RUN mvn dependency:go-offline -B || true
-
-# 2. Copia o código-fonte, compila o JAR e extrai em camadas descompactadas
 COPY src ./src
-RUN mvn clean package -DskipTests -B && \
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn package -DskipTests -B -q && \
     mv target/*.jar app.jar && \
     java -Djarmode=tools -jar app.jar extract --layers --destination extracted
 
@@ -42,11 +42,7 @@ USER appuser
 # Expõe a porta interna do servidor Spring Boot
 EXPOSE 8080
 
-# Flags da JVM otimizadas para baixo consumo de RAM e boot rápido em containers:
-# -XX:+UseG1GC -XX:+UseStringDeduplication : Coletor G1 com desduplicação automática de Strings em memória
-# -XX:MaxRAMPercentage=75.0                : Respeita limites do container
-# -Xss256k                                 : Reduz pilha por thread de 1MB para 256KB (economiza ~45MB de RAM nativa)
-# -XX:+TieredCompilation                   : Otimiza compilação JIT
+# Flags da JVM otimizadas para baixo consumo de RAM e boot rápido em containers
 ENTRYPOINT ["java", \
   "-XX:+UseG1GC", \
   "-XX:+UseStringDeduplication", \

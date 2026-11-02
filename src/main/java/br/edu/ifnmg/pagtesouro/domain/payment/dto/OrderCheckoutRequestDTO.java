@@ -1,6 +1,5 @@
 package br.edu.ifnmg.pagtesouro.domain.payment.dto;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -17,15 +16,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  */
 public record OrderCheckoutRequestDTO(
     @JsonProperty("contributorCpfCnpj")
-    @JsonAlias({"contributor_cpf_cnpj", "contributorCpfCnpj"})
     String contributorCpfCnpj,
 
     @JsonProperty("contributorName")
-    @JsonAlias({"contributor_name", "contributorName"})
     String contributorName,
 
     @JsonProperty("isMobile")
-    @JsonAlias({"is_mobile", "isMobile"})
     boolean isMobile
 ) {
     @JsonCreator

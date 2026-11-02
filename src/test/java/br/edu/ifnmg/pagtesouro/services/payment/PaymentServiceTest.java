@@ -1,9 +1,7 @@
 package br.edu.ifnmg.pagtesouro.services.payment;
 
 import br.edu.ifnmg.pagtesouro.domain.order.Order;
-import br.edu.ifnmg.pagtesouro.domain.order.OrderStatus;
 import br.edu.ifnmg.pagtesouro.exceptions.ConflictException;
-import java.time.temporal.ChronoUnit;
 import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItem;
 import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItemStatus;
 import br.edu.ifnmg.pagtesouro.domain.payment.Payment;
@@ -169,6 +167,33 @@ class PaymentServiceTest {
     }
 
     @Test
+    @DisplayName("checkoutDirect: Deve normalizar CPF pontuado do contribuinte antes de persistir")
+    void checkoutDirectNormalizesFormattedCpf() {
+        DirectCheckoutRequestDTO request = new DirectCheckoutRequestDTO(
+            product.getId(),
+            1,
+            "123.456.789-01",
+            "Caio Viana",
+            false
+        );
+
+        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
+        org.mockito.ArgumentCaptor<Order> orderCaptor = org.mockito.ArgumentCaptor.forClass(Order.class);
+        org.mockito.ArgumentCaptor<Payment> paymentCaptor = org.mockito.ArgumentCaptor.forClass(Payment.class);
+        when(orderRepository.save(orderCaptor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(paymentRepository.save(paymentCaptor.capture())).thenReturn(payment);
+        when(paymentRepository.saveAndFlush(any(Payment.class))).thenReturn(payment);
+        when(pagTesouroClient.getProperties()).thenReturn(properties);
+        when(pagTesouroClient.createPayment(any())).thenReturn(Mono.just(ptResponse));
+
+        CheckoutResponseDTO response = paymentService.checkoutDirect(request);
+
+        assertNotNull(response);
+        assertEquals("12345678901", orderCaptor.getValue().getGuestCpf(), "CPF do pedido convidado deve ser normalizado (apenas dígitos)");
+        assertEquals("12345678901", paymentCaptor.getValue().getContributorCpfCnpj(), "CPF do pagamento deve ser normalizado");
+    }
+
+    @Test
     @DisplayName("Deve iniciar checkout de pedido com sucesso gerando a URL de redirecionamento")
     void checkoutOrderSuccess() {
         OrderCheckoutRequestDTO request = new OrderCheckoutRequestDTO(
@@ -327,7 +352,7 @@ class PaymentServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Payment> page = new PageImpl<>(java.util.List.of(payment));
 
-        when(paymentRepository.findAllByContributorCpfCnpj(user.getCpf(), pageable)).thenReturn(page);
+        when(paymentRepository.findByUserId(user.getId(), pageable)).thenReturn(page);
 
         PageResponseDTO<PaymentHistoryResponseDTO> response = paymentService.getMyPayments(user, pageable);
 
@@ -340,6 +365,6 @@ class PaymentServiceTest {
         assertEquals(payment.getId(), response.content().get(0).id());
         assertEquals(payment.getAmount(), response.content().get(0).amount());
 
-        verify(paymentRepository, times(1)).findAllByContributorCpfCnpj(user.getCpf(), pageable);
+        verify(paymentRepository, times(1)).findByUserId(user.getId(), pageable);
     }
 }

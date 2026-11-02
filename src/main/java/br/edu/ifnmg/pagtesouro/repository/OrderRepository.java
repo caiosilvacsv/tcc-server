@@ -5,8 +5,8 @@ import br.edu.ifnmg.pagtesouro.domain.order.OrderStatus;
 import br.edu.ifnmg.pagtesouro.domain.user.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.util.List;
@@ -17,8 +17,11 @@ import java.util.UUID;
  *
  * @author Caio da Silva Viana
  */
-@Repository
 public interface OrderRepository extends JpaRepository<Order, UUID> {
+
+    @EntityGraph(attributePaths = {"orderItems"})
+    @Override
+    List<Order> findAll();
 
     List<Order> findAllByUser(User user);
 
@@ -28,5 +31,9 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     List<Order> findByCancelledAtIsNullAndCreateAtBefore(Instant cutoffDate);
 
-    long countByStatus(OrderStatus status);
+    default long countByStatus(OrderStatus status) {
+        return findAll().stream()
+                .filter(order -> order.getStatus() == status)
+                .count();
+    }
 }

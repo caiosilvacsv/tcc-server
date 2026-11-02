@@ -1,6 +1,5 @@
 package br.edu.ifnmg.pagtesouro.domain.payment.dto;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -22,26 +21,21 @@ import java.util.UUID;
 public record DirectCheckoutRequestDTO(
     @NotNull(message = "O ID do produto é obrigatório para checkout direto!")
     @JsonProperty("productId")
-    @JsonAlias({"product_id", "productID", "productId"})
     UUID productId,
 
     @NotNull(message = "A quantidade é obrigatória!")
     @Min(value = 1, message = "A quantidade mínima deve ser 1!")
     @JsonProperty("quantity")
-    @JsonAlias("quantity")
     Integer quantity,
 
     @NotBlank(message = "O CPF/CNPJ do pagador é obrigatório para checkout simplificado!")
     @JsonProperty("contributorCpfCnpj")
-    @JsonAlias({"contributor_cpf_cnpj", "contributorCpfCnpj"})
     String contributorCpfCnpj,
 
     @NotBlank(message = "O nome do pagador é obrigatório para checkout simplificado!")
     @JsonProperty("contributorName")
-    @JsonAlias({"contributor_name", "contributorName"})
     String contributorName,
 
     @JsonProperty("isMobile")
-    @JsonAlias({"is_mobile", "isMobile"})
     boolean isMobile
 ) {}

@@ -12,6 +12,7 @@ import br.edu.ifnmg.pagtesouro.domain.payment.dto.OrderCheckoutRequestDTO;
 import br.edu.ifnmg.pagtesouro.domain.payment.dto.CheckoutResponseDTO;
 import br.edu.ifnmg.pagtesouro.domain.payment.dto.PaymentHistoryResponseDTO;
 import br.edu.ifnmg.pagtesouro.domain.product.Product;
+import br.edu.ifnmg.pagtesouro.domain.user.CpfValidator;
 import br.edu.ifnmg.pagtesouro.domain.user.User;
 import br.edu.ifnmg.pagtesouro.exceptions.ConflictException;
 import br.edu.ifnmg.pagtesouro.exceptions.FindException;
@@ -99,9 +100,12 @@ public class PaymentService {
 
     BigDecimal amountTotal = product.getPrice().multiply(BigDecimal.valueOf(request.quantity()));
 
+    String normalizedCpf = CpfValidator.normalize(request.contributorCpfCnpj());
+    String contributorCpf = (normalizedCpf != null && !normalizedCpf.isEmpty()) ? normalizedCpf : request.contributorCpfCnpj().trim();
+
     Order guestOrder = new Order();
     guestOrder.setUser(null);
-    guestOrder.setGuestCpf(request.contributorCpfCnpj().trim());
+    guestOrder.setGuestCpf(contributorCpf);
     guestOrder.setGuestName(request.contributorName().trim());
     guestOrder.setTotalAmount(amountTotal);
     guestOrder.setCreateAt(Instant.now());
@@ -121,7 +125,7 @@ public class PaymentService {
     Payment payment = createInitialPayment(
         amountTotal,
         request.contributorName().trim(),
-        request.contributorCpfCnpj().trim(),
+        contributorCpf,
         savedItems != null ? new ArrayList<>(savedItems) : new ArrayList<>()
     );
 
@@ -199,7 +203,7 @@ public class PaymentService {
 
   @Transactional(readOnly = true)
   public PageResponseDTO<PaymentHistoryResponseDTO> getMyPayments(User user, Pageable pageable) {
-    Page<Payment> payments = paymentRepository.findAllByContributorCpfCnpj(user.getCpf(), pageable);
+    Page<Payment> payments = paymentRepository.findByUserId(user.getId(), pageable);
     return new PageResponseDTO<>(payments.map(PaymentHistoryResponseDTO::new));
   }
 

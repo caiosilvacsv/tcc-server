@@ -476,4 +476,151 @@ class OrderServiceTest {
         verify(orderRepository, times(1)).findByCancelledAtIsNullAndCreateAtBefore(any(Instant.class));
         verify(orderRepository, times(1)).save(abandonedOrder);
     }
+
+    @Test
+    @DisplayName("getItemById: Deve permitir acesso quando o usuário autenticado for o proprietário do item")
+    void getItemByIdOwnerSuccess() {
+        UUID itemId = UUID.randomUUID();
+        OrderItem item = new OrderItem();
+        item.setId(itemId);
+        item.setOrder(order);
+        item.setProduct(product);
+        item.setQuantity(2);
+        item.setTotalAmount(new BigDecimal("5.00"));
+        item.setStatus(OrderItemStatus.PAID);
+        item.setPaidAt(Instant.now());
+
+        when(orderItemRepository.findById(itemId)).thenReturn(Optional.of(item));
+
+        var ticket = orderService.getItemById(itemId, user);
+
+        assertNotNull(ticket);
+        assertEquals(itemId, ticket.itemId());
+        assertEquals("123.***.***-01", ticket.buyerCpf());
+        verify(orderItemRepository, times(1)).findById(itemId);
+    }
+
+    @Test
+    @DisplayName("getItemById: Deve permitir acesso quando o usuário for um ADMINISTRADOR mesmo sem ser o dono")
+    void getItemByIdAdminSuccess() {
+        UUID itemId = UUID.randomUUID();
+        OrderItem item = new OrderItem();
+        item.setId(itemId);
+        item.setOrder(order); // Pertence a 'user'
+        item.setProduct(product);
+        item.setQuantity(1);
+        item.setTotalAmount(new BigDecimal("2.50"));
+        item.setStatus(OrderItemStatus.PAID);
+        item.setPaidAt(Instant.now());
+
+        User admin = new User(
+            UUID.randomUUID(),
+            "admin@ifnmg.edu.br",
+            "Admin",
+            "IFNMG",
+            "hash",
+            "99988877766",
+            br.edu.ifnmg.pagtesouro.domain.user.UserRoles.ADMIN,
+            Instant.now(),
+            Instant.now()
+        );
+
+        when(orderItemRepository.findById(itemId)).thenReturn(Optional.of(item));
+
+        var ticket = orderService.getItemById(itemId, admin);
+
+        assertNotNull(ticket);
+        assertEquals(itemId, ticket.itemId());
+        verify(orderItemRepository, times(1)).findById(itemId);
+    }
+
+    @Test
+    @DisplayName("getItemById: Deve bloquear com SecurityException (403) quando usuário não for dono nem ADMIN (IDOR)")
+    void getItemByIdNonOwnerNonAdminForbidden() {
+        UUID itemId = UUID.randomUUID();
+        OrderItem item = new OrderItem();
+        item.setId(itemId);
+        item.setOrder(order); // Pertence a 'user'
+        item.setProduct(product);
+
+        User attacker = new User(
+            UUID.randomUUID(),
+            "attacker@ifnmg.edu.br",
+            "Atacante",
+            "Malicioso",
+            "hash",
+            "52998224725",
+            br.edu.ifnmg.pagtesouro.domain.user.UserRoles.USER,
+            Instant.now(),
+            Instant.now()
+        );
+
+        when(orderItemRepository.findById(itemId)).thenReturn(Optional.of(item));
+
+        SecurityException ex = assertThrows(
+            SecurityException.class,
+            () -> orderService.getItemById(itemId, attacker)
+        );
+
+        assertTrue(ex.getMessage().contains("Acesso negado"));
+        verify(orderItemRepository, times(1)).findById(itemId);
+    }
+
+    @Test
+    @DisplayName("getItemById: Deve bloquear com SecurityException quando item de visitante (guest) for acessado por não-ADMIN")
+    void getItemByIdGuestOrderForbiddenForStudent() {
+        UUID itemId = UUID.randomUUID();
+        Order guestOrder = new Order();
+        guestOrder.setId(UUID.randomUUID());
+        guestOrder.setUser(null); // Pedido anônimo
+
+        OrderItem item = new OrderItem();
+        item.setId(itemId);
+        item.setOrder(guestOrder);
+        item.setProduct(product);
+
+        when(orderItemRepository.findById(itemId)).thenReturn(Optional.of(item));
+
+        assertThrows(
+            SecurityException.class,
+            () -> orderService.getItemById(itemId, user)
+        );
+    }
+
+    @Test
+    @DisplayName("getItemById: Deve lançar FindException se o item não for encontrado")
+    void getItemByIdNotFound() {
+        UUID itemId = UUID.randomUUID();
+        when(orderItemRepository.findById(itemId)).thenReturn(Optional.empty());
+
+        assertThrows(
+            FindException.class,
+            () -> orderService.getItemById(itemId, user)
+        );
+    }
+
+    @Test
+    @DisplayName("getTicketsAvailableByCpf: Deve normalizar CPF pontuado e buscar corretamente")
+    void getTicketsAvailableByCpfWithFormattedCpf() {
+        OrderItem itemPaid = new OrderItem();
+        itemPaid.setId(UUID.randomUUID());
+        itemPaid.setOrder(order);
+        itemPaid.setProduct(product);
+        itemPaid.setQuantity(1);
+        itemPaid.setTotalAmount(new BigDecimal("2.50"));
+        itemPaid.setStatus(OrderItemStatus.PAID);
+        itemPaid.setPaidAt(Instant.now());
+
+        order.setOrderItems(new ArrayList<>(List.of(itemPaid)));
+
+        when(orderRepository.findByGuestCpf("12345678901")).thenReturn(List.of());
+        when(userRepository.findByCpf("12345678901")).thenReturn(user);
+        when(orderRepository.findAllByUser(user)).thenReturn(List.of(order));
+
+        var tickets = orderService.getTicketsAvailableByCpf("123.456.789-01");
+
+        assertNotNull(tickets);
+        assertEquals(1, tickets.size());
+        assertEquals(itemPaid.getId(), tickets.get(0).itemId());
+    }
 }

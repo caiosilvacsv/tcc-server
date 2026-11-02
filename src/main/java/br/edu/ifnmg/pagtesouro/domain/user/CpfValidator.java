@@ -29,6 +29,25 @@ public final class CpfValidator {
   }
 
   /**
+   * Mascara um CPF para conformidade com a LGPD (Lei Geral de Proteção de Dados),
+   * exibindo apenas os 3 primeiros e os 2 últimos dígitos no formato {@code 123.***.***-01}.
+   *
+   * @param cpf O CPF a ser mascarado, com ou sem pontuação
+   * @return O CPF mascarado no formato 123.***.***-01, ou null se o parâmetro for nulo/vazio,
+   *         ou uma máscara genérica se não contiver exatamente 11 dígitos numéricos
+   */
+  public static String mask(String cpf) {
+    if (cpf == null || cpf.trim().isEmpty()) {
+      return null;
+    }
+    String normalized = normalize(cpf);
+    if (normalized == null || normalized.length() != 11) {
+      return "***.***.***-**";
+    }
+    return normalized.substring(0, 3) + ".***.***-" + normalized.substring(9, 11);
+  }
+
+  /**
    * Valida matematicamente um CPF brasileiro por meio do cálculo de seus dígitos verificadores.
    * <p>
    * **Critérios de Validação:**

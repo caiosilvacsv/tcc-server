@@ -8,6 +8,7 @@ import br.edu.ifnmg.pagtesouro.domain.order.dto.TicketReadyResponseDTO;
 import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItem;
 import br.edu.ifnmg.pagtesouro.domain.orderItem.OrderItemStatus;
 import br.edu.ifnmg.pagtesouro.domain.product.Product;
+import br.edu.ifnmg.pagtesouro.domain.user.CpfValidator;
 import br.edu.ifnmg.pagtesouro.domain.user.User;
 import br.edu.ifnmg.pagtesouro.exceptions.ConflictException;
 import br.edu.ifnmg.pagtesouro.exceptions.FindException;
@@ -190,7 +191,8 @@ public class OrderService {
             throw new IllegalArgumentException("O CPF é obrigatório para a consulta de tíquetes.");
         }
 
-        String cleanedCpf = cpf.trim();
+        String normalizedCpf = CpfValidator.normalize(cpf);
+        String cleanedCpf = (normalizedCpf != null && !normalizedCpf.isEmpty()) ? normalizedCpf : cpf.trim();
         List<Order> orders = new ArrayList<>(orderRepository.findByGuestCpf(cleanedCpf));
         UserDetails userDetails = userRepository.findByCpf(cleanedCpf);
         if (userDetails instanceof User registeredUser) {
@@ -295,6 +297,45 @@ public class OrderService {
 
     /**
      * Resgata a projeção detalhada de um tíquete específico através de seu identificador único global (UUID).
+     *
+     * @param itemId O identificador único do item de pedido.
+     * @return A projeção {@link TicketReadyResponseDTO} do tíquete correspondente.
+     * @throws FindException se o item não for localizado.
+     */
+    /**
+     * Resgata um item de pedido pelo seu ID e valida a autorização do usuário solicitante (mitigação de IDOR).
+     *
+     * @param itemId O identificador único do item de pedido.
+     * @param user O usuário autenticado solicitando o item.
+     * @return A projeção {@link TicketReadyResponseDTO} do tíquete correspondente.
+     * @throws FindException se o item não for localizado.
+     * @throws SecurityException se o usuário não for o proprietário do pedido nem administrador.
+     */
+    @Transactional(readOnly = true)
+    public TicketReadyResponseDTO getItemById(UUID itemId, User user) {
+        OrderItem item = orderItemRepository.findById(itemId)
+            .orElseThrow(() -> new FindException("Item de pedido com ID " + itemId + " não localizado."));
+
+        boolean isOwner = item.getOrder() != null
+                && item.getOrder().getUser() != null
+                && item.getOrder().getUser().getId() != null
+                && user != null
+                && user.getId() != null
+                && item.getOrder().getUser().getId().equals(user.getId());
+
+        boolean isAdmin = user != null
+                && user.getRole() != null
+                && "ADMIN".equalsIgnoreCase(user.getRole().name());
+
+        if (!isOwner && !isAdmin) {
+            throw new SecurityException("Acesso negado: você não tem permissão para visualizar este item de pedido.");
+        }
+
+        return new TicketReadyResponseDTO(item);
+    }
+
+    /**
+     * Resgata um item de pedido pelo seu ID (método de conveniência interna).
      *
      * @param itemId O identificador único do item de pedido.
      * @return A projeção {@link TicketReadyResponseDTO} do tíquete correspondente.

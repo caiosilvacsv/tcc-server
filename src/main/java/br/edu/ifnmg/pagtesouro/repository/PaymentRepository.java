@@ -7,7 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
+import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -20,7 +20,6 @@ import java.util.UUID;
  *
  * @author Caio da Silva Viana
  */
-@Repository
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     @EntityGraph(attributePaths = {"orderItems"})
@@ -32,11 +31,20 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     Page<Payment> findByContributorCpfCnpj(String contributorCpfCnpj, Pageable pageable);
 
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = br.edu.ifnmg.pagtesouro.domain.payment.PaymentStatus.COMPLETED")
-    BigDecimal sumTotalConfirmedRevenue();
+    @Query("SELECT DISTINCT p FROM payments p JOIN p.orderItems oi JOIN oi.order o WHERE o.user.id = :userId")
+    Page<Payment> findByUserId(@Param("userId") UUID userId, Pageable pageable);
+
+    List<Payment> findAllByStatus(PaymentStatus status);
+
+    default BigDecimal sumTotalConfirmedRevenue() {
+        return findAllByStatus(PaymentStatus.COMPLETED).stream()
+                .map(Payment::getAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
 
     @Query("""
-        SELECT DISTINCT p FROM Payment p
+        SELECT DISTINCT p FROM payments p
         JOIN p.orderItems item
         WHERE item.order.id = :orderId
           AND p.status IN (br.edu.ifnmg.pagtesouro.domain.payment.PaymentStatus.CREATED, br.edu.ifnmg.pagtesouro.domain.payment.PaymentStatus.SUBMITTED)

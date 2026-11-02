@@ -48,4 +48,30 @@ class CpfValidatorTest {
         assertFalse(CpfValidator.isValid("111.111.111-11"));
         assertFalse(CpfValidator.isValid("99999999999"));
     }
+
+    @Test
+    @DisplayName("Deve mascarar CPF no formato 123.***.***-01 para CPFs válidos com ou sem pontuação")
+    void mask_ValidCpfs() {
+        assertEquals("123.***.***-01", CpfValidator.mask("123.456.789-01"));
+        assertEquals("123.***.***-01", CpfValidator.mask("12345678901"));
+        assertEquals("111.***.***-35", CpfValidator.mask("111.444.777-35"));
+        assertEquals("111.***.***-35", CpfValidator.mask("11144477735"));
+        assertEquals("529.***.***-25", CpfValidator.mask("529.982.247-25"));
+    }
+
+    @Test
+    @DisplayName("Deve retornar null ao mascarar CPF nulo ou em branco")
+    void mask_NullOrBlank() {
+        assertNull(CpfValidator.mask(null));
+        assertNull(CpfValidator.mask(""));
+        assertNull(CpfValidator.mask("   "));
+    }
+
+    @Test
+    @DisplayName("Deve retornar máscara segura quando CPF não contiver exatamente 11 dígitos (ex: CNPJ ou inválido)")
+    void mask_Non11Digits() {
+        assertEquals("***.***.***-**", CpfValidator.mask("12345"));
+        assertEquals("***.***.***-**", CpfValidator.mask("12.345.678/0001-90"));
+        assertEquals("***.***.***-**", CpfValidator.mask("abc-def"));
+    }
 }

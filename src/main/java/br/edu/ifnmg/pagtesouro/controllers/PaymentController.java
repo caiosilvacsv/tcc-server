@@ -55,7 +55,7 @@ public class PaymentController {
      * @param request O DTO contendo o ID do produto, quantidade e dados cadastrais do doador/pagador.
      * @return O DTO com a resposta e URL de redirecionamento do PagTesouro com status 201 Created.
      */
-    @PostMapping({"/anonymous", "/checkout/direct"})
+    @PostMapping("/checkout/direct")
     public ResponseEntity<CheckoutResponseDTO> createPaymentAnonymous(@RequestBody @Valid DirectCheckoutRequestDTO request) {
         CheckoutResponseDTO response = paymentService.checkoutDirect(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -70,7 +70,7 @@ public class PaymentController {
      * @param user O usuário estudante autenticado injetado pelo Spring Security.
      * @return A lista com as respostas e URLs de redirecionamento do PagTesouro com status 201 Created.
      */
-    @PostMapping({"/checkout/{orderId}", "/checkout/order/{orderId}"})
+    @PostMapping("/checkout/{orderId}")
     public ResponseEntity<List<CheckoutResponseDTO>> createPaymentCheckout(
             @PathVariable UUID orderId,
             @RequestBody(required = false) @Valid OrderCheckoutRequestDTO request,

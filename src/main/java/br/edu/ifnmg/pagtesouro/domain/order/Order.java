@@ -117,7 +117,7 @@ public class Order {
         for (OrderItem item : orderItems) {
             if (item.getStatus() == OrderItemStatus.PENDING) {
                 hasPending = true;
-            } else if (item.getStatus() == OrderItemStatus.PAID) {
+            } else if (item.getStatus() == OrderItemStatus.PAID || item.getStatus() == OrderItemStatus.EXCHANGED) {
                 hasPaid = true;
             } else if (item.getStatus() == OrderItemStatus.CANCELLED) {
                 hasCancelled = true;

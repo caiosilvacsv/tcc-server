@@ -4,6 +4,7 @@ import br.edu.ifnmg.pagtesouro.domain.order.dto.BatchExchangeRequestDTO;
 import br.edu.ifnmg.pagtesouro.domain.order.dto.OrderRequestDTO;
 import br.edu.ifnmg.pagtesouro.domain.order.dto.OrderResponseDTO;
 import br.edu.ifnmg.pagtesouro.domain.order.dto.TicketReadyResponseDTO;
+import br.edu.ifnmg.pagtesouro.domain.user.CpfValidator;
 import br.edu.ifnmg.pagtesouro.domain.user.User;
 import br.edu.ifnmg.pagtesouro.services.order.OrderService;
 import jakarta.validation.Valid;
@@ -90,7 +91,12 @@ public class OrderController {
             @AuthenticationPrincipal User user) {
 
         if (cpf != null && !cpf.trim().isEmpty()) {
-            if (!user.getRole().name().equals("ADMIN")) {
+            String normalizedRequestedCpf = CpfValidator.normalize(cpf);
+            String normalizedUserCpf = user.getCpf() != null ? CpfValidator.normalize(user.getCpf()) : null;
+            boolean isSelf = normalizedRequestedCpf != null && normalizedRequestedCpf.equals(normalizedUserCpf);
+            boolean isAdmin = user.getRole() != null && "ADMIN".equalsIgnoreCase(user.getRole().name());
+
+            if (!isSelf && !isAdmin) {
                 throw new SecurityException("Acesso negado: apenas administradores podem consultar tíquetes de terceiros por CPF.");
             }
             return ResponseEntity.ok(orderService.getTicketsAvailableByCpf(cpf));
@@ -100,18 +106,19 @@ public class OrderController {
     }
 
     /**
-     * Rota pública para consulta de tíquetes pagos de compradores visitantes/anônimos.
-     * Exige a conferência conjunta de CPF e Nome para preservar a privacidade do comprador.
+     * Rota de consulta de tíquetes pagos de compradores visitantes/anônimos.
+     * Desativada por motivos de segurança e LGPD, exigindo autenticação/cadastro.
      *
      * @param cpf O CPF informado na compra direta.
      * @param name O Nome completo informado na compra direta.
-     * @return Lista contendo os tíquetes disponíveis projetados em {@link TicketReadyResponseDTO} com status 200 OK.
+     * @return Lista contendo os tíquetes disponíveis projetados em {@link TicketReadyResponseDTO}.
      */
+    @Deprecated
     @GetMapping("/guest")
     public ResponseEntity<List<TicketReadyResponseDTO>> getGuestTickets(
             @RequestParam("cpf") String cpf,
             @RequestParam("name") String name) {
-        return ResponseEntity.ok(orderService.getGuestTickets(cpf, name));
+        throw new SecurityException("A rota pública de consulta de tíquetes foi desativada por motivos de segurança e LGPD. Cadastre-se ou realize login para acessar seus tíquetes.");
     }
 
     /**
@@ -140,7 +147,7 @@ public class OrderController {
     public ResponseEntity<TicketReadyResponseDTO> getItemById(
             @PathVariable UUID itemId,
             @AuthenticationPrincipal User user) {
-        TicketReadyResponseDTO ticket = orderService.getItemById(itemId);
+        TicketReadyResponseDTO ticket = orderService.getItemById(itemId, user);
         return ResponseEntity.ok(ticket);
     }
 

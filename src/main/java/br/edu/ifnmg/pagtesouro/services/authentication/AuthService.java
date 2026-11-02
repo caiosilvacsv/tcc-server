@@ -77,7 +77,7 @@ public class AuthService {
         data.email(),
         password,
         data.name().trim(),
-        data.last_name().trim(),
+        data.lastName().trim(),
         cpf
     );
     User savedUser = userRepository.save(user);
